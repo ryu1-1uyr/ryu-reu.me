@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import ThreeDimensionalRoom from "./Otameshi";
-import PostList from "./components/PostList";
+import ThreeDimensionalRoom from "@/app/Otameshi";
+import PostList from "@/app/components/PostList";
 
 export default function Home() {
   return (
