@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import PostCard from "./PostCard";
 
 export default async function PostList() {
   const posts = await prisma.post.findMany({
@@ -29,19 +29,14 @@ export default async function PostList() {
     <div className="max-w-2xl mx-auto p-6 space-y-4">
       <h2 className="text-2xl font-bold mb-4">投稿一覧</h2>
       {posts.map((post) => (
-        <article
+        <PostCard
           key={post.id}
-          className="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
-        >
-          <Link href={`/posts/${post.slug}`}>
-            <h3 className="text-xl font-semibold hover:underline">{post.title}</h3>
-          </Link>
-          <p className="text-sm text-gray-500 mt-1">
-            by {post.author.email} ·{" "}
-            {new Date(post.createdAt).toLocaleDateString("ja-JP")}
-          </p>
-          <p className="mt-2 text-gray-700 line-clamp-3">{post.content}</p>
-        </article>
+          title={post.title}
+          slug={post.slug}
+          authorEmail={post.author.email}
+          createdAt={post.createdAt}
+          content={post.content}
+        />
       ))}
     </div>
   );
