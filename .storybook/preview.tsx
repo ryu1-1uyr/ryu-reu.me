@@ -1,4 +1,5 @@
 import type { Preview } from "@storybook/nextjs-vite";
+import React from "react";
 import "../app/globals.css";
 
 const preview: Preview = {
@@ -10,6 +11,13 @@ const preview: Preview = {
       },
     },
   },
+  decorators: [
+    (Story) => (
+      <div className="bg-elements-background min-h-screen p-8">
+        <Story />
+      </div>
+    ),
+  ],
 };
 
 export default preview;

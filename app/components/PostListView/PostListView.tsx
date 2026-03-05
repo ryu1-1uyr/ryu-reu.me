@@ -16,13 +16,16 @@ type Props = {
 export default function PostListView({ posts }: Props) {
   if (posts.length === 0) {
     return (
-      <div className="p-6 text-center text-gray-500">投稿がまだありません</div>
+      // 投稿がないことはないけど
+      <div className="p-6 text-center text-illustration-secondary">
+        投稿がまだありません
+      </div>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-4">
-      <h2 className="text-2xl font-bold mb-4">投稿一覧</h2>
+      <h2 className="text-illustration-secondary font-bold mb-4">投稿一覧</h2>
       {posts.map((post) => (
         <PostCard
           key={post.id}

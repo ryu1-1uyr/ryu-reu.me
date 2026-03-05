@@ -16,11 +16,13 @@ export default function PostCard({
   content,
 }: Props) {
   return (
-    <article className="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+    <article className="border-illustration-stroke bg-elements-headline rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
       <Link href={`/posts/${slug}`}>
-        <h3 className="text-xl font-semibold hover:underline">{title}</h3>
+        <h3 className="text-xl text-illustration-stroke font-semibold hover:underline">
+          {title}
+        </h3>
       </Link>
-      <p className="text-sm text-gray-500 mt-1">
+      <p className="text-xs text-illustration-highlight text-right mt-1">
         by {authorEmail} · {new Date(createdAt).toLocaleDateString("ja-JP")}
       </p>
       <p className="mt-2 text-gray-700 line-clamp-3">{content}</p>
