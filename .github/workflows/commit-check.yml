@@ -1,0 +1,28 @@
+name: Commit Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  no-fixup-commits:
+    name: No fixup commits
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for fixup commits
+        run: |
+          FIXUP_COMMITS=$(git log origin/${{ github.base_ref }}..HEAD --format="%s" | grep -iE "^fixup!|^fix-up" || true)
+          if [ -n "$FIXUP_COMMITS" ]; then
+            echo "::error::fixup コミットがはいっちゃってるよ〜〜〜〜ん！！！！マージ前に git rebase -i でお掃除よろw"
+            echo ""
+            echo "該当コミット:"
+            echo "$FIXUP_COMMITS"
+            exit 1
+          fi
+          echo "fixup 無し！よし！"
