@@ -27,8 +27,6 @@ const PhysicsCanvas: React.FC<PhysicsCanvasProps> = ({ type }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null); // useRefにもCanvas要素の型を指定
   const engineRef = useRef<Matter.Engine | null>(null); // Engine型またはnullを指定
 
-  console.log("canvasRef", canvasRef, "engineRef", engineRef);
-
   useEffect(() => {
     console.log("in useEffect");
     const canvas = canvasRef.current;
