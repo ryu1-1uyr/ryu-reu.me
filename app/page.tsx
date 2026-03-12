@@ -59,14 +59,31 @@ export default function Home() {
           </h2>
           <div className="flex flex-wrap gap-2 mt-2">
             {[
-              { icon: <FaXTwitter />, label: "X", url: "ゲーム" },
-              { icon: <FaYoutube />, label: "YouTube", url: "開発" },
-              { icon: <FaGithub />, label: "GitHub", url: "作曲" },
-              { icon: <SiPixiv />, label: "Pixiv", url: "音楽" },
+              {
+                icon: <FaXTwitter />,
+                label: "X",
+                url: "https://x.com/reu_00_00",
+              },
+              {
+                icon: <FaYoutube />,
+                label: "YouTube",
+                url: "https://www.youtube.com/@ryuryuuyr",
+              },
+              {
+                icon: <FaGithub />,
+                label: "GitHub",
+                url: "https://github.com/ryu1-1uyr",
+              },
+              {
+                icon: <SiPixiv />,
+                label: "pixiv",
+                url: "https://www.pixiv.net/users/27207159",
+              },
             ].map(({ icon, label, url }) => (
               <a
                 key={label}
                 href={url}
+                target="_blank"
                 className="relative group flex items-center justify-center w-12 h-12 rounded-xl bg-illustration-stroke border border-elements-paragraph/20 text-2xl text-elements-paragraph hover:text-elements-headline hover:border-elements-paragraph/50 transition-colors duration-150"
               >
                 {icon}
