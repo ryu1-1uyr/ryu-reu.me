@@ -25,7 +25,7 @@ export default function PostListView({ posts }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-4">
-      <h2 className="text-illustration-secondary font-bold mb-4">投稿一覧</h2>
+      <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2 mb-4">投稿一覧</h2>
       {posts.map((post) => (
         <PostCard
           key={post.id}

@@ -20,15 +20,19 @@ export default function Home() {
               className="p-1 bg-elements-headline rounded-full object-cover"
             />
           </div>
-          <div className="font-bold">ReU</div>
+          <p className="text-xl font-bold">ReU</p>
         </div>
-        <span>
+        <p className="text-elements-paragraph">
           お絵描きをしたり曲やソフトウェアを作ったりします。
           <br /> りゆう とか れう って呼んでください。
-        </span>
-        <div>ここには日記とかの雑記をノージャンルで置いてます。</div>
+        </p>
+        <p className="text-elements-paragraph">
+          ここには日記とかの雑記をノージャンルで置いてます。
+        </p>
         <div>
-          <div>好きなもの</div>
+          <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
+            好きなもの
+          </h2>
           <div className="flex flex-wrap gap-2 mt-2">
             {[
               { emoji: "🎮", label: "ゲーム" },
@@ -50,7 +54,9 @@ export default function Home() {
           </div>
         </div>
         <div>
-          <div>Link</div>
+          <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
+            Link
+          </h2>
           <div className="flex flex-wrap gap-2 mt-2">
             {[
               { icon: <FaXTwitter />, label: "X", url: "ゲーム" },
