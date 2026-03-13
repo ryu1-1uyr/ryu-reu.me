@@ -16,7 +16,7 @@ type Story = StoryObj<typeof PostCard>;
 export const Default: Story = {
   args: {
     title: "Next.jsとSupabaseで作るフルスタックアプリ",
-    slug: "nextjs-supabase-fullstack",
+    id: "nextjs-supabase-fullstack",
     authorEmail: "author@example.com",
     createdAt: new Date("2026-03-01"),
     content:
@@ -27,7 +27,7 @@ export const Default: Story = {
 export const LongContent: Story = {
   args: {
     title: "長い本文のサンプル",
-    slug: "long-content-sample",
+    id: "long-content-sample",
     authorEmail: "writer@example.com",
     createdAt: new Date("2026-02-15"),
     content:
@@ -38,7 +38,7 @@ export const LongContent: Story = {
 export const ShortContent: Story = {
   args: {
     title: "短い投稿",
-    slug: "short-post",
+    id: "short-post",
     authorEmail: "user@example.com",
     createdAt: new Date("2026-03-05"),
     content: "短い内容の投稿です。",

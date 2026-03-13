@@ -3,7 +3,7 @@ import PostCard from "@/app/components/PostCard";
 export type PostItem = {
   id: string;
   title: string;
-  slug: string;
+  slug: string; // markdown 中の画像パスで使用予定
   authorEmail: string;
   createdAt: Date;
   content: string;
@@ -31,8 +31,8 @@ export default function PostListView({ posts }: Props) {
       {posts.map((post) => (
         <PostCard
           key={post.id}
+          id={post.id}
           title={post.title}
-          slug={post.slug}
           authorEmail={post.authorEmail}
           createdAt={post.createdAt}
           content={post.content}
