@@ -12,10 +12,12 @@ type Props = {
 export default async function PostPage({ params }: Props) {
   const { id } = await params;
 
-  const post = await prisma.post.findUnique({
-    where: { id },
-    include: { author: true },
-  });
+  // 一旦決め打ち findUniqueにすべき
+  const post = (
+    await prisma.post.findMany({
+      where: { id: "3" },
+    })
+  )[0];
 
   if (!post) notFound();
 
@@ -28,8 +30,12 @@ export default async function PostPage({ params }: Props) {
             {post.title}
           </h1>
           <div className="text-sm text-elements-paragraph mb-8 space-y-1">
-            <p>作成日: {new Date(post.createdAt).toLocaleDateString("ja-JP")}</p>
-            <p>更新日: {new Date(post.updatedAt).toLocaleDateString("ja-JP")}</p>
+            <p>
+              作成日: {new Date(post.createdAt).toLocaleDateString("ja-JP")}
+            </p>
+            <p>
+              更新日: {new Date(post.updatedAt).toLocaleDateString("ja-JP")}
+            </p>
           </div>
           <article className="bg-elements-headline rounded-lg p-8 prose prose-neutral max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
