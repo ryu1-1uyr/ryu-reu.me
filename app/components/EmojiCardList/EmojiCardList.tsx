@@ -11,7 +11,7 @@ type Props = {
 
 export default function EmojiCardList({ items }: Props) {
   return (
-    <div className="flex flex-wrap gap-2 mt-2">
+    <div className="flex flex-wrap gap-1 mt-2">
       {items.map(({ emoji, label }) => (
         <EmojiCard key={emoji} emoji={emoji} label={label} />
       ))}

@@ -4,7 +4,7 @@ import AboutMe from "@/app/_sections/AboutMe";
 
 export default function Home() {
   return (
-    <main className="grid grid-cols-2 bg-elements-background min-h-screen items-center">
+    <main className="grid grid-cols-1 md:grid-cols-2 bg-elements-background min-h-screen items-center">
       <AboutMe />
       <Suspense
         fallback={

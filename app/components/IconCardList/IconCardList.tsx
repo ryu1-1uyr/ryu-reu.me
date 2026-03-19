@@ -13,7 +13,7 @@ type Props = {
 
 export default function IconCardList({ items }: Props) {
   return (
-    <div className="flex flex-wrap gap-2 mt-2">
+    <div className="flex flex-wrap gap-1 mt-2">
       {items.map(({ icon, label, url }) => (
         <IconCard key={label} icon={icon} label={label} url={url} />
       ))}

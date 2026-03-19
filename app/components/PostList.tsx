@@ -4,12 +4,12 @@ import PostsHydrator from "@/app/components/PostsHydrator";
 
 const isDev = process.env.NODE_ENV === "development";
 
-// こいつはコンポーネントである必要はなさそう。使う箇所に移植してこいつは消す
 export default async function PostList() {
   const posts = await prisma.post.findMany({
     where: isDev ? undefined : { published: true },
     orderBy: { createdAt: "desc" },
     include: { author: true },
+    take: 3,
   });
 
   const items = posts.map((post) => ({
@@ -24,9 +24,8 @@ export default async function PostList() {
 
   return (
     <>
-      {/* サーバーで取得した posts を Client 側の Context に流し込む */}
       <PostsHydrator posts={items} />
-      <PostListView posts={items} />
+      <PostListView posts={items} showMoreLink />
     </>
   );
 }

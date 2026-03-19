@@ -44,9 +44,9 @@ const LINKS = [
 
 export default function AboutMe() {
   return (
-    <div className="text-elements-headline max-w-2xl mx-auto p-6 space-y-4">
-      <div className="grid grid-cols-2 items-center gap-4 max-w-fit">
-        <div className="w-20 h-20">
+    <div className="text-elements-headline max-w-2xl mx-auto px-5 py-8 md:p-6 space-y-5 md:space-y-4">
+      <div className="flex items-center gap-4">
+        <div className="w-16 h-16 md:w-20 md:h-20 shrink-0">
           <Image
             src={IconImage.src}
             alt="User Icon"
@@ -57,24 +57,24 @@ export default function AboutMe() {
         </div>
         <p className="text-xl font-bold">ReU</p>
       </div>
-      <p className="text-elements-paragraph">
-        お絵描きをしたり曲やソフトウェアを作ったりします。
-        <br /> りゆう とか れう って呼んでください。
-      </p>
-      <p className="text-elements-paragraph">
-        ここには日記とかの雑記をノージャンルで置いてます。
-      </p>
-      <div>
-        <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
-          好きなもの
-        </h2>
-        <EmojiCardList items={INTERESTS} />
+      <div className="text-sm md:text-base text-elements-paragraph leading-relaxed space-y-1">
+        <p>お絵描きをしたり曲やソフトウェアを作ったりします。</p>
+        <p>りゆう とか れう って呼んでください。</p>
+        <p>ここには日記とかの雑記をノージャンルで置いてます。</p>
       </div>
-      <div>
-        <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
-          Link
-        </h2>
-        <IconCardList items={LINKS} />
+      <div className="mt-10">
+        <div>
+          <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
+            好きなもの
+          </h2>
+          <EmojiCardList items={INTERESTS} />
+        </div>
+        <div className="mt-4">
+          <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
+            Link
+          </h2>
+          <IconCardList items={LINKS} />
+        </div>
       </div>
     </div>
   );
