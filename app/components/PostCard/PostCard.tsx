@@ -2,6 +2,7 @@ import Link from "next/link";
 
 type Props = {
   id: string;
+  slug: string;
   title: string;
   authorEmail: string;
   createdAt: Date;
@@ -21,7 +22,7 @@ function stripMarkdown(text: string): string {
 }
 
 export default function PostCard({
-  id,
+  slug,
   title,
   authorEmail,
   createdAt,
@@ -31,7 +32,7 @@ export default function PostCard({
 
   return (
     <article className="border border-illustration-stroke bg-elements-headline rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-      <Link href={`/posts/${id}`}>
+      <Link href={`/posts/${slug}`}>
         <h3 className="text-xl text-illustration-stroke font-semibold hover:underline">
           {title}
         </h3>

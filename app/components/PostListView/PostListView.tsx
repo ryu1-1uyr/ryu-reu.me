@@ -33,6 +33,7 @@ export default function PostListView({ posts }: Props) {
         <PostCard
           key={post.id}
           id={post.id}
+          slug={post.slug}
           title={post.title}
           authorEmail={post.authorEmail}
           createdAt={post.createdAt}
