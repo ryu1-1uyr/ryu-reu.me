@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import PostCard from "@/app/components/PostCard";
 import Pagination from "@/app/components/Pagination";
 import BackButton from "@/app/components/BackButton";
+import PageTransition from "@/app/components/PageTransition";
 
 const POSTS_PER_PAGE = 10;
 const isDev = process.env.NODE_ENV === "development";
@@ -38,39 +39,41 @@ export default async function BlogPage({
   }));
 
   return (
-    <main className="bg-elements-background min-h-screen px-6 py-12">
-      <div className="max-w-2xl mx-auto">
-        <BackButton />
-        <h1 className="text-2xl font-bold text-elements-headline mb-6">
-          記事一覧
-        </h1>
+    <PageTransition>
+      <main className="bg-elements-background min-h-screen px-6 py-12">
+        <div className="max-w-2xl mx-auto">
+          <BackButton />
+          <h1 className="text-2xl font-bold text-elements-headline mb-6">
+            記事一覧
+          </h1>
 
-        {items.length === 0 ? (
-          <p className="text-center text-elements-paragraph py-12">
-            記事がまだありません
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {items.map((post) => (
-              <PostCard
-                key={post.id}
-                id={post.id}
-                slug={post.slug}
-                title={post.title}
-                authorEmail={post.authorEmail}
-                createdAt={post.createdAt}
-                content={post.content}
-              />
-            ))}
-          </div>
-        )}
+          {items.length === 0 ? (
+            <p className="text-center text-elements-paragraph py-12">
+              記事がまだありません
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {items.map((post) => (
+                <PostCard
+                  key={post.id}
+                  id={post.id}
+                  slug={post.slug}
+                  title={post.title}
+                  authorEmail={post.authorEmail}
+                  createdAt={post.createdAt}
+                  content={post.content}
+                />
+              ))}
+            </div>
+          )}
 
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          basePath="/blog"
-        />
-      </div>
-    </main>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            basePath="/blog"
+          />
+        </div>
+      </main>
+    </PageTransition>
   );
 }
