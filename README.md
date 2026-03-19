@@ -1,38 +1,57 @@
-おだめしだよ
+# reu's blog
 
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+Next.js + Supabase で作った個人ブログ。
 
-## Getting Started
+## 技術スタック
 
-First, run the development server:
+- **Next.js 16** (App Router)
+- **Prisma** + Supabase (PostgreSQL)
+- **Supabase Storage** — 画像アップロード
+- **Supabase Auth** — 認証（メール/パスワード）
+- **Tailwind CSS**
+- **Storybook**
+
+## セットアップ
+
+### 1. 依存パッケージのインストール
+
+```bash
+npm install
+```
+
+### 2. 環境変数
+
+`.env` に以下を設定：
+
+```
+DATABASE_URL="postgresql://..."
+NEXT_PUBLIC_SUPABASE_URL="https://xxx.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ..."
+```
+
+### 3. DB マイグレーション
+
+```bash
+npx prisma migrate dev
+```
+
+### 4. 開発サーバー
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+http://localhost:3000 で開く。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 主な機能
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- **ブログ記事の閲覧** — トップページに記事一覧、クリックで詳細表示
+- **記事エディタ** (`/upload`) — Markdown エディタ + リアルタイムプレビュー
+- **画像アップロード** — D&D で Supabase Storage にアップ、本文に自動挿入
+- **認証** — `/upload` と API は Supabase Auth で保護済み。ログインは `/login` から
 
-## Learn More
+## Supabase の設定
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+- **Storage**: `blog-images` バケットを作成（Public）
+- **Auth**: Authentication > Users からユーザーを手動作成
+- **RLS**: Storage に INSERT（authenticated）と SELECT（public）ポリシーを設定
