@@ -3,6 +3,7 @@
 import { useParams, notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { usePostsCache } from "@/app/contexts/PostsCache";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
@@ -33,7 +34,7 @@ export default function PostPage() {
             </p>
           </div>
           <article className="bg-elements-headline rounded-lg p-8 prose prose-neutral max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
               {post.content}
             </ReactMarkdown>
           </article>

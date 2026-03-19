@@ -30,7 +30,17 @@ model Post {
   published Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   authorId  String
   author    User     @relation(fields: [authorId], references: [id])
+  images    Image[]
+}
+
+model Image {
+  id        String   @id @default(cuid())
+  url       String   // Supabase Storage の公開 URL
+  path      String   // Storage 内のパス（削除用）
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id])
+  createdAt DateTime @default(now())
 }
