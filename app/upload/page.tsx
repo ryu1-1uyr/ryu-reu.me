@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, DragEvent } from "react";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -14,9 +15,9 @@ type FailedUpload = {
 
 export default function UploadPage() {
   const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
   const [content, setContent] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [published, setPublished] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -25,6 +26,15 @@ export default function UploadPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [failedUploads, setFailedUploads] = useState<FailedUpload[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const router = useRouter();
+
+  const handleUnauthorized = (res: Response) => {
+    if (res.status === 401) {
+      router.push("/login");
+      return true;
+    }
+    return false;
+  };
 
   const validateFile = (file: File): string | null => {
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -49,9 +59,12 @@ export default function UploadPage() {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        if (slug) formData.append("slug", slug);
 
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        if (handleUnauthorized(res)) return;
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.error);
@@ -90,7 +103,7 @@ export default function UploadPage() {
         setUploading(false);
       }
     },
-    [content, slug]
+    [content]
   );
 
   const handleDrop = useCallback(
@@ -124,8 +137,8 @@ export default function UploadPage() {
   }, []);
 
   const handleSave = async () => {
-    if (!title || !slug || !content) {
-      setMessage({ type: "error", text: "タイトル・スラッグ・本文は必須だよ" });
+    if (!title || !content) {
+      setMessage({ type: "error", text: "タイトル・本文は必須だよ" });
       return;
     }
 
@@ -136,13 +149,17 @@ export default function UploadPage() {
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, slug, content }),
+        body: JSON.stringify({ title, content, published }),
       });
 
+      if (handleUnauthorized(res)) return;
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setMessage({ type: "success", text: `記事を保存したよ (ID: ${data.id})` });
+      setMessage({
+        type: "success",
+        text: `記事を保存したよ (ID: ${data.id})`,
+      });
     } catch (err) {
       setMessage({
         type: "error",
@@ -161,31 +178,17 @@ export default function UploadPage() {
         </h1>
 
         {/* メタ情報 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm text-elements-paragraph mb-1">
-              タイトル
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="記事のタイトル"
-              className="w-full px-3 py-2 rounded-lg bg-elements-headline text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-elements-button"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-elements-paragraph mb-1">
-              スラッグ
-            </label>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="url-friendly-slug"
-              className="w-full px-3 py-2 rounded-lg bg-elements-headline text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-elements-button"
-            />
-          </div>
+        <div className="mb-6">
+          <label className="block text-sm text-elements-paragraph mb-1">
+            タイトル
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="記事のタイトル"
+            className="w-full px-3 py-2 rounded-lg bg-elements-headline text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-elements-button"
+          />
         </div>
 
         {/* エディタ + プレビュー */}
@@ -250,12 +253,8 @@ export default function UploadPage() {
                   className="flex items-center justify-between text-sm"
                 >
                   <div className="text-elements-paragraph min-w-0">
-                    <span className="truncate block">
-                      {item.file.name}
-                    </span>
-                    <span className="text-red-400 text-xs">
-                      {item.error}
-                    </span>
+                    <span className="truncate block">{item.file.name}</span>
+                    <span className="text-red-400 text-xs">{item.error}</span>
                   </div>
                   <div className="flex gap-2 ml-4 shrink-0">
                     <button
@@ -291,12 +290,27 @@ export default function UploadPage() {
           >
             {saving ? "保存中..." : "記事を保存"}
           </button>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <div
+              onClick={() => setPublished((prev) => !prev)}
+              className={`relative w-10 h-5 rounded-full transition-colors ${
+                published ? "bg-green-500" : "bg-gray-500"
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                  published ? "translate-x-5" : ""
+                }`}
+              />
+            </div>
+            <span className="text-sm text-elements-paragraph">
+              {published ? "公開" : "下書き"}
+            </span>
+          </label>
           {message && (
             <span
               className={`text-sm ${
-                message.type === "success"
-                  ? "text-green-400"
-                  : "text-red-400"
+                message.type === "success" ? "text-green-400" : "text-red-400"
               }`}
             >
               {message.text}
