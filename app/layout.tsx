@@ -8,11 +8,34 @@ import "./globals.css";
 
 const yuseiMagic = Yusei_Magic({ weight: "400", subsets: ["latin"] });
 
+const siteUrl = "https://www.ryu-reu.me";
+const siteName = "りゆうの実験場";
+const siteDescription = "なんかブログとか";
+
 export const metadata: Metadata = {
-  title: "りゆうの実験場",
-  description: "なんかブログとか",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: siteName,
+    template: `%s | ${siteName}`,
+  },
+  description: siteDescription,
   icons: {
     icon: IconImage.src,
+  },
+  openGraph: {
+    type: "website",
+    siteName,
+    title: siteName,
+    description: siteDescription,
+    url: siteUrl,
+    images: [{ url: IconImage.src, width: 400, height: 400, alt: siteName }],
+    locale: "ja_JP",
+  },
+  twitter: {
+    card: "summary",
+    title: siteName,
+    description: siteDescription,
+    images: [IconImage.src],
   },
 };
 

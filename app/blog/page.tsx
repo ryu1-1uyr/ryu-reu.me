@@ -1,8 +1,19 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import PostCard from "@/app/components/PostCard";
 import Pagination from "@/app/components/Pagination";
 import BackButton from "@/app/components/BackButton";
 import PageTransition from "@/app/components/PageTransition";
+
+export const metadata: Metadata = {
+  title: "記事一覧",
+  description: "りゆうのブログの記事一覧",
+  openGraph: {
+    title: "記事一覧 | りゆうの実験場",
+    description: "りゆうの実験場のブログ記事一覧",
+    url: "/blog",
+  },
+};
 
 const POSTS_PER_PAGE = 10;
 const isDev = process.env.NODE_ENV === "development";
