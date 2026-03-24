@@ -9,6 +9,7 @@ import { usePostsCache } from "@/app/contexts/PostsCache";
 import type { PostItem } from "@/app/components/PostListView/PostListView";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
+import ShareButtons from "@/app/components/ShareButtons";
 
 export default function PostPage() {
   const { slug: rawSlug } = useParams<{ slug: string }>();
@@ -75,6 +76,10 @@ export default function PostPage() {
               {post.content}
             </ReactMarkdown>
           </article>
+
+          <div className="mt-3 flex justify-end">
+            <ShareButtons title={post.title} slug={post.slug} />
+          </div>
         </div>
       </main>
     </PageTransition>
