@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, DragEvent } from "react";
+import { useState, useRef, useCallback, useEffect, DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,11 +8,28 @@ import rehypeRaw from "rehype-raw";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const DRAFT_KEY = "upload-draft";
 
 type FailedUpload = {
   file: File;
   error: string;
 };
+
+function loadDraft() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as {
+      title: string;
+      content: string;
+      published: boolean;
+      savedAt: string;
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function UploadPage() {
   const [title, setTitle] = useState("");
@@ -20,6 +37,18 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [published, setPublished] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
+
+  // HydrationのエラーがうざいのでHTMLマウント後にlocalStorageから下書きを復元
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      setTitle(draft.title);
+      setContent(draft.content);
+      setPublished(draft.published);
+      setDraftRestoredAt(draft.savedAt);
+    }
+  }, []);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -28,6 +57,25 @@ export default function UploadPage() {
   const [failedUploads, setFailedUploads] = useState<FailedUpload[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
+
+  // 自動保存（1秒デバウンス）
+  useEffect(() => {
+    if (!title && !content) return;
+    const timer = setTimeout(() => {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          title,
+          content,
+          published,
+          savedAt: new Date().toISOString(),
+        })
+      );
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [title, content, published]);
+
+  const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
 
   const handleUnauthorized = (res: Response) => {
     if (res.status === 401) {
@@ -157,6 +205,7 @@ export default function UploadPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      clearDraft();
       setMessage({
         type: "success",
         text: `記事を保存したよ (ID: ${data.id})`,
@@ -177,6 +226,29 @@ export default function UploadPage() {
         <h1 className="text-2xl font-bold text-elements-headline mb-6">
           記事エディタ
         </h1>
+
+        {/* 下書き復元通知 */}
+        {draftRestoredAt && (
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-elements-button/30 bg-elements-button/10 px-4 py-2">
+            <span className="text-sm text-elements-paragraph">
+              下書きを復元したよ（
+              {new Date(draftRestoredAt).toLocaleString("ja-JP")}）
+            </span>
+            <button
+              onClick={() => {
+                clearDraft();
+                setTitle("");
+                setContent("");
+                setPublished(true);
+                setMessage(null);
+                window.location.reload();
+              }}
+              className="text-xs text-red-400 hover:text-red-300"
+            >
+              破棄する
+            </button>
+          </div>
+        )}
 
         {/* メタ情報 */}
         <div className="mb-6">
@@ -228,7 +300,10 @@ export default function UploadPage() {
             <div className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto">
               {content ? (
                 <article className="prose prose-neutral max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
+                  >
                     {content}
                   </ReactMarkdown>
                 </article>
