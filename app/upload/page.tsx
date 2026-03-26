@@ -20,20 +20,35 @@ function loadDraft() {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as { title: string; content: string; published: boolean; savedAt: string };
+    return JSON.parse(raw) as {
+      title: string;
+      content: string;
+      published: boolean;
+      savedAt: string;
+    };
   } catch {
     return null;
   }
 }
 
 export default function UploadPage() {
-  const draft = loadDraft();
-  const [title, setTitle] = useState(draft?.title ?? "");
-  const [content, setContent] = useState(draft?.content ?? "");
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [published, setPublished] = useState(draft?.published ?? true);
+  const [published, setPublished] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [draftRestoredAt] = useState(draft?.savedAt ?? null);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
+
+  // HydrationのエラーがうざいのでHTMLマウント後にlocalStorageから下書きを復元
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      setTitle(draft.title);
+      setContent(draft.content);
+      setPublished(draft.published);
+      setDraftRestoredAt(draft.savedAt);
+    }
+  }, []);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -49,7 +64,12 @@ export default function UploadPage() {
     const timer = setTimeout(() => {
       localStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({ title, content, published, savedAt: new Date().toISOString() })
+        JSON.stringify({
+          title,
+          content,
+          published,
+          savedAt: new Date().toISOString(),
+        })
       );
     }, 1000);
     return () => clearTimeout(timer);
@@ -211,7 +231,8 @@ export default function UploadPage() {
         {draftRestoredAt && (
           <div className="mb-4 flex items-center justify-between rounded-lg border border-elements-button/30 bg-elements-button/10 px-4 py-2">
             <span className="text-sm text-elements-paragraph">
-              下書きを復元したよ（{new Date(draftRestoredAt).toLocaleString("ja-JP")}）
+              下書きを復元したよ（
+              {new Date(draftRestoredAt).toLocaleString("ja-JP")}）
             </span>
             <button
               onClick={() => {
@@ -279,7 +300,10 @@ export default function UploadPage() {
             <div className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto">
               {content ? (
                 <article className="prose prose-neutral max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
+                  >
                     {content}
                   </ReactMarkdown>
                 </article>
