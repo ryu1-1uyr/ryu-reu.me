@@ -9,7 +9,16 @@ export default function BackButton() {
 
   const handleBack = async () => {
     await startExit();
-    router.back();
+
+    const hasSameOriginHistory =
+      window.history.length > 1 &&
+      document.referrer.startsWith(window.location.origin);
+
+    if (hasSameOriginHistory) {
+      router.back();
+    } else {
+      router.push("/");
+    }
   };
 
   return (
@@ -20,7 +29,7 @@ export default function BackButton() {
       <span className="inline-block transition-transform duration-200 group-hover:-translate-x-1">
         ←
       </span>
-      <span>トップへ戻る</span>
+      <span>戻る</span>
     </button>
   );
 }
