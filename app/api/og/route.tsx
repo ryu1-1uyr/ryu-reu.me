@@ -17,6 +17,21 @@ function extractFirstImageUrl(content: string): string | null {
   return null;
 }
 
+const FONT_URL =
+  "https://fonts.gstatic.com/s/yuseimagic/v12/yYLt0hbAyuCmoo5wlhPkpjHR.ttf";
+
+const fontOptions = async () => ({
+  width: 1200 as const,
+  height: 630 as const,
+  fonts: [
+    {
+      name: "Yusei Magic",
+      data: await fetch(FONT_URL).then((res) => res.arrayBuffer()),
+      style: "normal" as const,
+    },
+  ],
+});
+
 export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("slug");
 
@@ -31,12 +46,13 @@ export async function GET(request: NextRequest) {
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: "#232946",
+            fontFamily: "Yusei Magic",
           }}
         >
           <span style={{ color: "#fffffe", fontSize: 48 }}>りゆうの実験場</span>
         </div>
       ),
-      { width: 1200, height: 630 }
+      await fontOptions()
     );
   }
 
@@ -56,12 +72,13 @@ export async function GET(request: NextRequest) {
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: "#232946",
+            fontFamily: "Yusei Magic",
           }}
         >
           <span style={{ color: "#fffffe", fontSize: 48 }}>Not Found</span>
         </div>
       ),
-      { width: 1200, height: 630 }
+      await fontOptions()
     );
   }
 
@@ -75,6 +92,7 @@ export async function GET(request: NextRequest) {
           height: "100%",
           display: "flex",
           backgroundColor: "#232946",
+          fontFamily: "Yusei Magic",
           padding: 60,
         }}
       >
@@ -152,6 +170,6 @@ export async function GET(request: NextRequest) {
         )}
       </div>
     ),
-    { width: 1200, height: 630 }
+    await fontOptions()
   );
 }
