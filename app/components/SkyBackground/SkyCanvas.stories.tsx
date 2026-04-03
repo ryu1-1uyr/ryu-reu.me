@@ -81,8 +81,18 @@ export const SunsetClouds: Story = {
 };
 
 export const NightThunderstorm: Story = {
+  name: "夜の雷雨 ⚡",
   args: {
     phase: "night",
+    phaseProgress: 0.5,
+    weatherCondition: "thunderstorm",
+  },
+};
+
+export const DayThunderstorm: Story = {
+  name: "昼の雷雨 ⚡",
+  args: {
+    phase: "day",
     phaseProgress: 0.5,
     weatherCondition: "thunderstorm",
   },

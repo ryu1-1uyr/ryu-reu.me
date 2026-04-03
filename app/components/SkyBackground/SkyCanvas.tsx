@@ -75,6 +75,16 @@ type Cloud = {
   blobs: CloudBlob[];
 };
 
+// 稲妻の頂点リスト（メインボルト + サブボルト）
+type Bolt = { x: number; y: number }[];
+type LightningState = {
+  active: boolean;
+  frameCount: number; // 残りフレーム（0 で消灯）
+  nextStrikeIn: number; // 次の雷までのフレーム数
+  bolts: Bolt[];
+  flashOpacity: number;
+};
+
 function createStars(count: number, w: number, h: number): Star[] {
   return Array.from({ length: count }, () => ({
     x: Math.random() * w,
@@ -156,6 +166,46 @@ function createClouds(count: number, w: number, h: number): Cloud[] {
       blobs: generateCloudBlobs(width),
     };
   });
+}
+
+// --- 稲妻生成 ---
+function generateBolt(startX: number, startY: number, maxY: number): Bolt {
+  const points: Bolt = [{ x: startX, y: startY }];
+  let x = startX;
+  let y = startY;
+  const steps = 10 + Math.floor(Math.random() * 6);
+  for (let i = 0; i < steps; i++) {
+    x += (Math.random() - 0.5) * 60;
+    y += Math.random() * 20 + 20;
+    if (y > maxY) break;
+    points.push({ x, y });
+  }
+  return points;
+}
+
+function generateLightningBolts(w: number, h: number): Bolt[] {
+  const bolts: Bolt[] = [];
+  const startX = Math.random() * w;
+  // メインボルト
+  const main = generateBolt(startX, 0, h * 0.7);
+  bolts.push(main);
+  // 30% の確率でサブボルト（途中の頂点から分岐）
+  if (main.length > 4 && Math.random() < 0.3) {
+    const branchIdx = 2 + Math.floor(Math.random() * (main.length - 3));
+    const branch = generateBolt(main[branchIdx].x, main[branchIdx].y, h * 0.7);
+    bolts.push(branch);
+  }
+  return bolts;
+}
+
+function createLightningState(): LightningState {
+  return {
+    active: false,
+    frameCount: 0,
+    nextStrikeIn: 120 + Math.floor(Math.random() * 300), // 2〜7秒 (60fps換算)
+    bolts: [],
+    flashOpacity: 0,
+  };
 }
 
 // --- 描画関数 ---
@@ -319,14 +369,18 @@ function drawRain(
   ctx: CanvasRenderingContext2D,
   drops: Raindrop[],
   h: number,
-  w: number
+  w: number,
+  isThunderstorm = false
 ) {
-  // todo: 雷の時はすげ〜暴風雨にしたい
-  ctx.strokeStyle = "rgba(193, 200, 231, 0.4)";
-  ctx.lineWidth = 1;
+  const speedMul = isThunderstorm ? 1.3 : 1;
+  const windJitter = isThunderstorm ? 0.4 : 0.2;
+  ctx.strokeStyle = isThunderstorm
+    ? "rgba(193, 200, 231, 0.55)"
+    : "rgba(193, 200, 231, 0.4)";
+  ctx.lineWidth = isThunderstorm ? 1.5 : 1;
   for (const drop of drops) {
-    drop.y += drop.speed;
-    drop.x -= drop.speed * (0.1 + Math.random() * 0.2);
+    drop.y += drop.speed * speedMul;
+    drop.x -= drop.speed * (0.1 + Math.random() * windJitter);
     if (drop.y > h) {
       drop.y = -drop.length;
       drop.x = Math.random() * w;
@@ -336,6 +390,66 @@ function drawRain(
     ctx.moveTo(drop.x, drop.y);
     ctx.lineTo(drop.x + drop.length * 0.3, drop.y + drop.length);
     ctx.stroke();
+  }
+}
+
+function drawLightning(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  state: LightningState
+) {
+  // フラッシュ（画面全体を白く光らせる）
+  if (state.flashOpacity > 0) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${state.flashOpacity})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // 稲妻ライン
+  if (state.active && state.bolts.length > 0) {
+    ctx.save();
+    ctx.shadowColor = "#b8c1ec";
+    ctx.shadowBlur = 20;
+    ctx.lineCap = "round";
+
+    for (let bIdx = 0; bIdx < state.bolts.length; bIdx++) {
+      const bolt = state.bolts[bIdx];
+      if (bolt.length < 2) continue;
+      // メインボルト(0) は太め、サブ(1+) は細め
+      ctx.lineWidth = bIdx === 0 ? 2 : 1;
+      ctx.strokeStyle =
+        bIdx === 0
+          ? `rgba(255, 255, 255, ${0.9 * (state.frameCount / 4)})`
+          : `rgba(200, 210, 255, ${0.6 * (state.frameCount / 4)})`;
+
+      ctx.beginPath();
+      ctx.moveTo(bolt[0].x, bolt[0].y);
+      for (let i = 1; i < bolt.length; i++) {
+        ctx.lineTo(bolt[i].x, bolt[i].y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function tickLightning(state: LightningState, w: number, h: number) {
+  if (state.active) {
+    state.frameCount--;
+    state.flashOpacity *= 0.7; // 急速フェードアウト
+    if (state.frameCount <= 0) {
+      state.active = false;
+      state.flashOpacity = 0;
+      state.nextStrikeIn = 120 + Math.floor(Math.random() * 300);
+    }
+  } else {
+    state.nextStrikeIn--;
+    if (state.nextStrikeIn <= 0) {
+      state.active = true;
+      state.frameCount = 4; // 4フレーム光る
+      state.flashOpacity = 0.12 + Math.random() * 0.08;
+      state.bolts = generateLightningBolts(w, h);
+    }
   }
 }
 
@@ -372,6 +486,7 @@ export default function SkyCanvas({
   const rainRef = useRef<Raindrop[]>([]);
   const snowRef = useRef<Snowflake[]>([]);
   const cloudsRef = useRef<Cloud[]>([]);
+  const lightningRef = useRef<LightningState>(createLightningState());
   const initedRef = useRef(false);
 
   useEffect(() => {
@@ -468,7 +583,13 @@ export default function SkyCanvas({
         weatherCondition === "drizzle" ||
         weatherCondition === "thunderstorm"
       ) {
-        drawRain(ctx, rainRef.current, ch, cw);
+        drawRain(
+          ctx,
+          rainRef.current,
+          ch,
+          cw,
+          weatherCondition === "thunderstorm"
+        );
       }
 
       if (weatherCondition === "snow") {
@@ -476,7 +597,8 @@ export default function SkyCanvas({
       }
 
       if (weatherCondition === "thunderstorm") {
-        // 雷未実装 ⚡️
+        tickLightning(lightningRef.current, cw, ch);
+        drawLightning(ctx, cw, ch, lightningRef.current);
       }
 
       animId = requestAnimationFrame(render);
