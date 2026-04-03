@@ -4,6 +4,7 @@ import { FaXTwitter, FaYoutube, FaGithub, FaDiscord } from "react-icons/fa6";
 import { SiPixiv, SiSteam } from "react-icons/si";
 import EmojiCardList from "@/app/components/EmojiCardList";
 import IconCardList from "@/app/components/IconCardList";
+import RetroWindow from "@/app/components/RetroWindow";
 
 const INTERESTS = [
   { emoji: "🎮", label: "ゲーム" },
@@ -44,38 +45,40 @@ const LINKS = [
 
 export default function AboutMe() {
   return (
-    <div className="bg-elements-background/90 backdrop-blur-sm rounded-lg text-elements-headline max-w-2xl mx-auto px-5 py-8 md:p-6 space-y-5 md:space-y-4 ">
-      <div className="flex items-center gap-4">
-        <div className="w-16 h-16 md:w-20 md:h-20 shrink-0">
-          <Image
-            src={IconImage.src}
-            alt="User Icon"
-            width={80}
-            height={80}
-            className="p-1 bg-elements-headline rounded-full object-cover"
-          />
+    <RetroWindow title="about_me.exe" color="pink" className="max-w-2xl mx-auto">
+      <div className="text-elements-headline px-5 py-8 md:p-6 space-y-5 md:space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 md:w-20 md:h-20 shrink-0">
+            <Image
+              src={IconImage.src}
+              alt="User Icon"
+              width={80}
+              height={80}
+              className="p-1 bg-elements-headline rounded-full object-cover"
+            />
+          </div>
+          <p className="text-xl font-bold">ReU</p>
         </div>
-        <p className="text-xl font-bold">ReU</p>
-      </div>
-      <div className="text-sm md:text-base text-elements-paragraph leading-relaxed space-y-1">
-        <p>お絵描きをしたり曲やソフトウェアを作ったりします。</p>
-        <p>りゆう とか れう って呼んでください。</p>
-        <p>ここには日記とかの雑記をノージャンルで置いてます。</p>
-      </div>
-      <div className="mt-10">
-        <div>
-          <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
-            好きなもの
-          </h2>
-          <EmojiCardList items={INTERESTS} />
+        <div className="text-sm md:text-base text-elements-paragraph leading-relaxed space-y-1">
+          <p>お絵描きをしたり曲やソフトウェアを作ったりします。</p>
+          <p>りゆう とか れう って呼んでください。</p>
+          <p>ここには日記とかの雑記をノージャンルで置いてます。</p>
         </div>
-        <div className="mt-4">
-          <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
-            Link
-          </h2>
-          <IconCardList items={LINKS} />
+        <div className="mt-10">
+          <div>
+            <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
+              好きなもの
+            </h2>
+            <EmojiCardList items={INTERESTS} />
+          </div>
+          <div className="mt-4">
+            <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
+              Link
+            </h2>
+            <IconCardList items={LINKS} />
+          </div>
         </div>
       </div>
-    </div>
+    </RetroWindow>
   );
 }
