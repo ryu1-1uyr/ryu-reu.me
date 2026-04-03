@@ -6,6 +6,8 @@ import { PostsCacheProvider } from "@/app/contexts/PostsCache";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
+import SkyBackground from "@/app/components/SkyBackground";
+
 const yuseiMagic = Yusei_Magic({ weight: "400", subsets: ["latin"] });
 
 const siteUrl = "https://www.ryu-reu.me";
@@ -50,6 +52,7 @@ export default function RootLayout({
       <body
         className={`${yuseiMagic.className} flex flex-col min-h-screen bg-elements-background`}
       >
+        <SkyBackground />
         <PostsCacheProvider>
           <div className="flex-1">{children}</div>
           <Footer />

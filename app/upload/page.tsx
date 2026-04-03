@@ -221,7 +221,7 @@ export default function UploadPage() {
   };
 
   return (
-    <main className="bg-elements-background min-h-screen p-6">
+    <main className="bg-elements-background/80 backdrop-blur-sm min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-elements-headline mb-6">
           記事エディタ

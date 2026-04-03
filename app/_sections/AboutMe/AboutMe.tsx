@@ -44,7 +44,7 @@ const LINKS = [
 
 export default function AboutMe() {
   return (
-    <div className="text-elements-headline max-w-2xl mx-auto px-5 py-8 md:p-6 space-y-5 md:space-y-4">
+    <div className="bg-elements-background/90 backdrop-blur-sm rounded-lg text-elements-headline max-w-2xl mx-auto px-5 py-8 md:p-6 space-y-5 md:space-y-4 ">
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 md:w-20 md:h-20 shrink-0">
           <Image
