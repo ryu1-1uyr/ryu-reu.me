@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import type { WeatherData } from "@/types/weather";
 
 type WeatherResult = {
@@ -7,57 +7,92 @@ type WeatherResult = {
 };
 
 const CACHE_DURATION = 10 * 60 * 1000; // 10分
+const FETCH_TIMEOUT = 5_000; // 5秒でタイムアウト
+const STORAGE_KEY = "weather-cache";
+
+// sessionStorage からキャッシュ読み出し
+function loadCache(): { data: WeatherData; fetchedAt: number } | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.fetchedAt < CACHE_DURATION) return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCache(data: WeatherData) {
+  try {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ data, fetchedAt: Date.now() })
+    );
+  } catch {
+    // sessionStorage が使えなくても無視
+  }
+}
+
+// タイムアウト付き fetch
+async function fetchWithTimeout(
+  url: string,
+  signal: AbortSignal
+): Promise<Response> {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res;
+}
 
 export function useWeatherData(): WeatherResult {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const cacheRef = useRef<{ data: WeatherData; fetchedAt: number } | null>(
-    null
-  );
 
   useEffect(() => {
-    // キャッシュが新鮮ならスキップ
-    if (
-      cacheRef.current &&
-      Date.now() - cacheRef.current.fetchedAt < CACHE_DURATION
-    ) {
-      setWeatherData(cacheRef.current.data);
+    // sessionStorage キャッシュが新鮮ならそれを使う（fetch ゼロ回）
+    const cached = loadCache();
+    if (cached) {
+      setWeatherData(cached.data);
       setIsLoading(false);
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
     async function fetchWeather() {
       try {
-        // IP ベースで位置推定（許可ダイアログなし）
-        const geoRes = await fetch("https://ipapi.co/json/");
-        if (!geoRes.ok) throw new Error("IP geolocation failed");
+        const geoRes = await fetchWithTimeout(
+          "https://ipapi.co/json/",
+          controller.signal
+        );
         const geo = await geoRes.json();
         const { latitude, longitude } = geo;
-
         if (!latitude || !longitude) throw new Error("No coordinates");
 
-        const weatherRes = await fetch(
-          `/api/weather?lat=${latitude}&lon=${longitude}`
+        const weatherRes = await fetchWithTimeout(
+          `/api/weather?lat=${latitude}&lon=${longitude}`,
+          controller.signal
         );
-        if (!weatherRes.ok) throw new Error("Weather API failed");
         const data: WeatherData = await weatherRes.json();
 
-        if (!cancelled) {
-          cacheRef.current = { data, fetchedAt: Date.now() };
+        if (!controller.signal.aborted) {
+          saveCache(data);
           setWeatherData(data);
         }
       } catch {
-        // 失敗しても null のまま → 時刻だけの空にフォールバック
+        // タイムアウト・ネットワークエラー → null のまま（時刻ベースの空にフォールバック）
       } finally {
-        if (!cancelled) setIsLoading(false);
+        clearTimeout(timeoutId);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     }
 
     fetchWeather();
+
     return () => {
-      cancelled = true;
+      controller.abort();
+      clearTimeout(timeoutId);
     };
   }, []);
 
