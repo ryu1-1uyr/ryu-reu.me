@@ -3,11 +3,13 @@
 import { useSkyPhase } from "@/app/hooks/useSkyPhase";
 import { useWeatherData } from "@/app/hooks/useWeatherData";
 import { useWeatherOverride } from "@/app/contexts/WeatherOverride";
+import { useSkyDrawings } from "@/app/contexts/SkyDrawings";
 import SkyCanvas from "./SkyCanvas";
 
 export default function SkyBackground() {
   const { weatherData, isLoading } = useWeatherData();
   const { override } = useWeatherOverride();
+  const { drawings } = useSkyDrawings();
   const { phase, progress } = useSkyPhase(
     weatherData?.sunrise,
     weatherData?.sunset
@@ -26,6 +28,7 @@ export default function SkyBackground() {
         phase={phase}
         phaseProgress={progress}
         weatherCondition={weatherCondition}
+        skyDrawings={drawings}
       />
     </div>
   );

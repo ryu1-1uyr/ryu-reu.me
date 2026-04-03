@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import PostList from "@/app/components/PostList";
 import AboutMe from "@/app/_sections/AboutMe";
 import WeatherControl from "@/app/_sections/WeatherControl";
+import DrawingCanvas from "@/app/_sections/DrawingCanvas";
 import Desktop from "@/app/_sections/Desktop";
 
 export default function Home() {
@@ -21,6 +22,7 @@ export default function Home() {
           </Suspense>
         ),
         yaogoromo: <WeatherControl />,
+        "drawing-canvas": <DrawingCanvas />,
       }}
     />
   );

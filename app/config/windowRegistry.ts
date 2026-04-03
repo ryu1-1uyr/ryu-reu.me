@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type WindowId = "about-me" | "recent-posts" | "yaogoromo";
+export type WindowId = "about-me" | "recent-posts" | "yaogoromo" | "drawing-canvas";
 
 type TitleBarColor = "pink" | "blue" | "teal" | "orange";
 
@@ -52,6 +52,16 @@ export const WINDOW_REGISTRY: WindowDef[] = [
     initialOpen: false,
     initialPosition: { x: 960, y: 80 },
     mobileClassName: "w-full max-w-xs",
+  },
+  {
+    id: "drawing-canvas",
+    title: "oekaki.exe",
+    icon: "🎨",
+    color: "blue",
+    initialOpen: false,
+    initialPosition: { x: 100, y: 120 },
+    mobileClassName: "w-full max-w-sm",
+    desktopClassName: "max-w-sm",
   },
 ];
 

@@ -13,6 +13,15 @@ const config: Config = {
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
+      keyframes: {
+        "fly-to-sky": {
+          "0%": { transform: "translateY(0) scale(1)", opacity: "1" },
+          "100%": { transform: "translateY(-100vh) scale(0.3)", opacity: "0" },
+        },
+      },
+      animation: {
+        "fly-to-sky": "fly-to-sky 0.8s ease-in forwards",
+      },
       colors: {
         elements: {
           background: "#232946",
