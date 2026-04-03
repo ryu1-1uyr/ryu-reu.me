@@ -89,7 +89,7 @@ export default function RetroWindow({
   return (
     <div
       className={`
-        rounded-lg overflow-scroll
+        rounded-lg
         border-2 border-illustration-stroke
         shadow-[4px_4px_0px_0px_rgba(18,22,41,0.6)]
         w-fit
