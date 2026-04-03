@@ -18,7 +18,7 @@ function DesktopInner({ aboutMe, postList }: Props) {
 
   return (
     <>
-      <main className="min-h-screen pb-12 flex flex-col md:flex-row items-center md:items-end justify-center gap-6 p-6">
+      <main className="h-[calc(100dvh-2.5rem)] overflow-hidden flex flex-col md:flex-row items-center md:items-end justify-center gap-6 p-6">
         {windows["about-me"].open && (
           <RetroWindow
             title="about_me.exe"
