@@ -40,7 +40,7 @@ function DesktopInner({ aboutMe, postList }: Props) {
             title="recent_posts.log"
             color="teal"
             className="max-w-md"
-            draggable
+            draggable={!isMobile}
             zIndex={windows["recent-posts"].zIndex}
             onClose={() => closeWindow("recent-posts")}
             onFocus={() => focusWindow("recent-posts")}
@@ -52,7 +52,7 @@ function DesktopInner({ aboutMe, postList }: Props) {
           <RetroWindow
             title="yaogoromo.exe"
             color="orange"
-            draggable
+            draggable={!isMobile}
             zIndex={windows["yaogoromo"].zIndex}
             onClose={() => closeWindow("yaogoromo")}
             onFocus={() => focusWindow("yaogoromo")}
