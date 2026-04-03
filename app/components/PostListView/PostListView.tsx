@@ -26,7 +26,7 @@ export default function PostListView({ posts, showMoreLink = false }: Props) {
   }
 
   return (
-    <div className="max-w-2xl p-6 space-y-4">
+    <div className="p-6 space-y-4">
       <h2 className="text-sm font-semibold text-elements-headline tracking-widest border-l-2 border-elements-button pl-2 mb-4">
         最近の戯言
       </h2>

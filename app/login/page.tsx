@@ -33,7 +33,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="bg-elements-background min-h-screen flex items-center justify-center p-6">
+    <main className="bg-elements-background/80 backdrop-blur-sm min-h-screen flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-bold text-elements-headline mb-8 text-center">
           ログイン

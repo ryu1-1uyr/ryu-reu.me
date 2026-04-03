@@ -46,7 +46,7 @@ export default function PostPage() {
 
   if (!mounted || !post) {
     return (
-      <main className="bg-elements-background min-h-screen flex items-center justify-center">
+      <main className="bg-elements-background/80 backdrop-blur-sm min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-elements-paragraph/20 border-t-elements-button animate-spin" />
       </main>
     );
@@ -54,7 +54,7 @@ export default function PostPage() {
 
   return (
     <PageTransition>
-      <main className="bg-elements-background min-h-screen px-6 py-12">
+      <main className="bg-elements-background/80 backdrop-blur-sm min-h-screen px-6 py-12">
         <div className="max-w-3xl mx-auto">
           <BackButton />
           <h1 className="text-3xl font-bold mb-4 text-elements-headline">
