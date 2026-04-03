@@ -10,7 +10,6 @@ type Props = {
 };
 
 // --- 色定義 ---
-// 旧カラー（リアル空）
 // const SKY_COLORS: Record<SkyPhase, [string, string, string]> = {
 //   night: ["#0d1b2a", "#1b2838", "#232946"],
 //   sunrise: ["#232946", "#e07c4f", "#f2c57c"],
@@ -173,7 +172,7 @@ function drawSkyGradient(
   const currentColors = SKY_COLORS[phase];
   const prevColors = SKY_COLORS[prevPhase];
 
-  // 雨系の天気なら灰色方向に寄せてどんよりさせる
+  // 秘伝のどんより
   const tintConfig = WEATHER_TINT[weather];
 
   // フェーズの最初の20%は前フェーズからブレンド
@@ -321,11 +320,12 @@ function drawRain(
   h: number,
   w: number
 ) {
-  ctx.strokeStyle = "rgba(184, 193, 236, 0.4)";
+  // todo: 雷の時はすげ〜暴風雨にしたい
+  ctx.strokeStyle = "rgba(193, 200, 231, 0.4)";
   ctx.lineWidth = 1;
   for (const drop of drops) {
     drop.y += drop.speed;
-    drop.x -= drop.speed * 0.3;
+    drop.x -= drop.speed * (0.1 + Math.random() * 0.2);
     if (drop.y > h) {
       drop.y = -drop.length;
       drop.x = Math.random() * w;
@@ -419,7 +419,7 @@ export default function SkyCanvas({
       const cw = w();
       const ch = h();
 
-      // 1. 空グラデーション
+      // 空のグラデーション
       drawSkyGradient(ctx, cw, ch, phase, phaseProgress, weatherCondition);
 
       if (reducedMotion) {
@@ -427,14 +427,11 @@ export default function SkyCanvas({
         return;
       }
 
-      // 2. 星
       drawStars(ctx, starsRef.current, time, phase, phaseProgress);
 
-      // 3. 太陽 or 月
       drawSun(ctx, cw, ch, phase, phaseProgress);
       drawMoon(ctx, cw, ch, phase, phaseProgress);
 
-      // 4. 雲
       if (
         weatherCondition === "clouds" ||
         weatherCondition === "rain" ||
@@ -445,7 +442,6 @@ export default function SkyCanvas({
         drawClouds(ctx, cloudsRef.current, cw);
       }
 
-      // 5. 雨
       if (
         weatherCondition === "rain" ||
         weatherCondition === "drizzle" ||
@@ -454,9 +450,12 @@ export default function SkyCanvas({
         drawRain(ctx, rainRef.current, ch, cw);
       }
 
-      // 6. 雪
       if (weatherCondition === "snow") {
         drawSnow(ctx, snowRef.current, ch, cw, time);
+      }
+
+      if (weatherCondition === "thunderstorm") {
+        // 雷未実装 ⚡️
       }
 
       animId = requestAnimationFrame(render);
