@@ -32,36 +32,58 @@ export default function RetroWindow({
   onClose,
   onFocus,
 }: Props) {
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  // ドラッグされたらフローから外して absolute にする
+  const [absPos, setAbsPos] = useState<{ left: number; top: number } | null>(
+    null
+  );
   const dragRef = useRef<{
     startX: number;
     startY: number;
-    originX: number;
-    originY: number;
+    originLeft: number;
+    originTop: number;
   } | null>(null);
 
   const handlePointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
       if (!draggable) return;
       onFocus?.();
+
+      const el = containerRef.current;
+      if (!el) return;
+
+      // 初回ドラッグ: 現在の画面上の位置を取得して absolute に切り替え
+      let currentLeft: number;
+      let currentTop: number;
+
+      if (absPos) {
+        currentLeft = absPos.left;
+        currentTop = absPos.top;
+      } else {
+        const rect = el.getBoundingClientRect();
+        currentLeft = rect.left;
+        currentTop = rect.top;
+        setAbsPos({ left: currentLeft, top: currentTop });
+      }
+
       dragRef.current = {
         startX: e.clientX,
         startY: e.clientY,
-        originX: pos.x,
-        originY: pos.y,
+        originLeft: currentLeft,
+        originTop: currentTop,
       };
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [draggable, pos, onFocus]
+    [draggable, absPos, onFocus]
   );
 
   const handlePointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
-    setPos({
-      x: dragRef.current.originX + dx,
-      y: dragRef.current.originY + dy,
+    setAbsPos({
+      left: dragRef.current.originLeft + dx,
+      top: dragRef.current.originTop + dy,
     });
   }, []);
 
@@ -69,25 +91,31 @@ export default function RetroWindow({
     dragRef.current = null;
   }, []);
 
-  const style = draggable
+  const isDragged = absPos !== null;
+
+  const style: React.CSSProperties = isDragged
     ? {
-        transform: `translate(${pos.x}px, ${pos.y}px)`,
+        position: "fixed",
+        left: absPos.left,
+        top: absPos.top,
         zIndex: zIndex ?? "auto",
       }
-    : undefined;
+    : { zIndex: zIndex ?? "auto" };
 
   return (
     <div
+      ref={containerRef}
       className={`
         rounded-lg overflow-hidden
         border-2 border-illustration-stroke
         shadow-[4px_4px_0px_0px_rgba(18,22,41,0.6)]
-        ${draggable ? "relative" : ""}
+        w-fit
         ${className}
       `}
       style={style}
       onPointerDown={() => onFocus?.()}
     >
+      {/* タイトルバー */}
       <div
         className={`
           ${BAR_COLORS[color]}
@@ -123,6 +151,7 @@ export default function RetroWindow({
         </div>
       </div>
 
+      {/* コンテンツ */}
       <div className="bg-elements-background/90 backdrop-blur-sm">
         {children}
       </div>

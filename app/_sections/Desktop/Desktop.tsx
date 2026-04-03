@@ -24,7 +24,7 @@ function DesktopInner({ aboutMe, postList }: Props) {
           <RetroWindow
             title="about_me.exe"
             color="pink"
-            className="max-w-2xl w-full md:w-auto"
+            className="max-w-md"
             draggable
             zIndex={windows["about-me"].zIndex}
             onClose={() => closeWindow("about-me")}
@@ -37,7 +37,7 @@ function DesktopInner({ aboutMe, postList }: Props) {
           <RetroWindow
             title="recent_posts.log"
             color="teal"
-            className="max-w-2xl w-full md:w-auto"
+            className="max-w-md"
             draggable
             zIndex={windows["recent-posts"].zIndex}
             onClose={() => closeWindow("recent-posts")}
@@ -50,7 +50,6 @@ function DesktopInner({ aboutMe, postList }: Props) {
           <RetroWindow
             title="yaogoromo.exe"
             color="orange"
-            className="w-72"
             draggable
             zIndex={windows["yaogoromo"].zIndex}
             onClose={() => closeWindow("yaogoromo")}
