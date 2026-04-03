@@ -8,6 +8,7 @@ import {
 import RetroWindow from "@/app/components/RetroWindow";
 import Taskbar from "@/app/components/Taskbar";
 import WeatherControl from "@/app/_sections/WeatherControl";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
 
 type Props = {
   aboutMe: ReactNode;
@@ -16,16 +17,17 @@ type Props = {
 
 function DesktopInner({ aboutMe, postList }: Props) {
   const { windows, closeWindow, focusWindow } = useWindowManager();
+  const isMobile = useIsMobile();
 
   return (
     <>
-      <main className="h-[calc(100dvh-2.5rem)] overflow-hidden flex flex-col md:flex-row items-center md:items-end justify-center gap-6 p-6">
+      <main className="h-[calc(100dvh-2.5rem)]  flex flex-col md:flex-row items-center md:items-end justify-center gap-6 p-6">
         {windows["about-me"].open && (
           <RetroWindow
             title="about_me.exe"
             color="pink"
             className="max-w-md"
-            draggable
+            draggable={!isMobile}
             zIndex={windows["about-me"].zIndex}
             onClose={() => closeWindow("about-me")}
             onFocus={() => focusWindow("about-me")}
