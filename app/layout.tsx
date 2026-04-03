@@ -6,7 +6,12 @@ import { PostsCacheProvider } from "@/app/contexts/PostsCache";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
-import SkyBackground from "@/app/components/SkyBackground";
+import dynamic from "next/dynamic";
+
+const SkyBackground = dynamic(
+  () => import("@/app/components/SkyBackground"),
+  { ssr: false }
+);
 import { WeatherOverrideProvider } from "@/app/contexts/WeatherOverride";
 
 const yuseiMagic = Yusei_Magic({ weight: "400", subsets: ["latin"] });
