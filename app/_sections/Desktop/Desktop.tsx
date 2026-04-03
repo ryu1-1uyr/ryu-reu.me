@@ -7,6 +7,7 @@ import {
 } from "@/app/contexts/WindowManager";
 import RetroWindow from "@/app/components/RetroWindow";
 import Taskbar from "@/app/components/Taskbar";
+import WeatherControl from "@/app/_sections/WeatherControl";
 
 type Props = {
   aboutMe: ReactNode;
@@ -43,6 +44,19 @@ function DesktopInner({ aboutMe, postList }: Props) {
             onFocus={() => focusWindow("recent-posts")}
           >
             {postList}
+          </RetroWindow>
+        )}
+        {windows["yaogoromo"].open && (
+          <RetroWindow
+            title="yaogoromo.exe"
+            color="orange"
+            className="w-72"
+            draggable
+            zIndex={windows["yaogoromo"].zIndex}
+            onClose={() => closeWindow("yaogoromo")}
+            onFocus={() => focusWindow("yaogoromo")}
+          >
+            <WeatherControl />
           </RetroWindow>
         )}
       </main>

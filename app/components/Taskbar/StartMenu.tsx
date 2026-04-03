@@ -11,6 +11,7 @@ type MenuItem = {
 const MENU_ITEMS: MenuItem[] = [
   { id: "about-me", label: "about_me.exe", icon: "👤" },
   { id: "recent-posts", label: "recent_posts.log", icon: "📝" },
+  { id: "yaogoromo", label: "yaogoromo.exe", icon: "🌤️" },
 ];
 
 type Props = {

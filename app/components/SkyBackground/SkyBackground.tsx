@@ -2,18 +2,20 @@
 
 import { useSkyPhase } from "@/app/hooks/useSkyPhase";
 import { useWeatherData } from "@/app/hooks/useWeatherData";
+import { useWeatherOverride } from "@/app/contexts/WeatherOverride";
 import SkyCanvas from "./SkyCanvas";
 
 export default function SkyBackground() {
   const { weatherData, isLoading } = useWeatherData();
+  const { override } = useWeatherOverride();
   const { phase, progress } = useSkyPhase(
     weatherData?.sunrise,
     weatherData?.sunset
   );
 
-  // 天気データ読み込み中は時刻ベースの空だけ表示
+  // オーバーライドがあればそっち優先、なければ API の天気 or デフォルト
   const weatherCondition =
-    !isLoading && weatherData ? weatherData.condition : "clear";
+    override ?? (!isLoading && weatherData ? weatherData.condition : "clear");
 
   return (
     <div

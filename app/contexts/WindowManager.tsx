@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback } from "react";
 
-export type WindowId = "about-me" | "recent-posts";
+export type WindowId = "about-me" | "recent-posts" | "yaogoromo";
 
 type WindowState = {
   open: boolean;
@@ -20,6 +20,7 @@ type WindowManagerContextType = {
 const INITIAL_WINDOWS: Record<WindowId, WindowState> = {
   "about-me": { open: true, zIndex: 1 },
   "recent-posts": { open: true, zIndex: 2 },
+  yaogoromo: { open: false, zIndex: 0 },
 };
 
 const WindowManagerContext = createContext<WindowManagerContextType | null>(
