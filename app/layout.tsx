@@ -6,13 +6,8 @@ import { PostsCacheProvider } from "@/app/contexts/PostsCache";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
-import dynamic from "next/dynamic";
-
-const SkyBackground = dynamic(
-  () => import("@/app/components/SkyBackground"),
-  { ssr: false }
-);
 import { WeatherOverrideProvider } from "@/app/contexts/WeatherOverride";
+import { SkyBackgroundWrapper } from "@/app/components/SkyBackground";
 
 const yuseiMagic = Yusei_Magic({ weight: "400", subsets: ["latin"] });
 
@@ -59,7 +54,7 @@ export default function RootLayout({
         className={`${yuseiMagic.className} flex flex-col min-h-screen bg-elements-background`}
       >
         <WeatherOverrideProvider>
-          <SkyBackground />
+          <SkyBackgroundWrapper />
           <PostsCacheProvider>
             <div className="flex-1">{children}</div>
             <Footer />
