@@ -412,21 +412,41 @@ export default function SkyCanvas({
     }
 
     let animId: number;
+    let running = true;
     const startTime = performance.now();
 
+    // reducedMotion: グラデーションだけ 1 回描いて終了、ループしない
+    if (reducedMotion) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawSkyGradient(ctx, w(), h(), phase, phaseProgress, weatherCondition);
+      return () => {
+        window.removeEventListener("resize", resize);
+      };
+    }
+
+    // タブの表示/非表示でアニメーションを一時停止・再開
+    const handleVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animId);
+        running = false;
+      } else {
+        if (!running) {
+          running = true;
+          animId = requestAnimationFrame(render);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     const render = () => {
+      if (!running) return;
+
       const time = performance.now() - startTime;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const cw = w();
       const ch = h();
 
-      // 空のグラデーション
       drawSkyGradient(ctx, cw, ch, phase, phaseProgress, weatherCondition);
-
-      if (reducedMotion) {
-        // アニメーション無効時はグラデーションだけ
-        return;
-      }
 
       drawStars(ctx, starsRef.current, time, phase, phaseProgress);
 
@@ -465,7 +485,9 @@ export default function SkyCanvas({
     animId = requestAnimationFrame(render);
 
     return () => {
+      running = false;
       cancelAnimationFrame(animId);
+      document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("resize", resize);
     };
   }, [phase, phaseProgress, weatherCondition]);
