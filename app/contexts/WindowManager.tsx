@@ -1,8 +1,13 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback } from "react";
+import {
+  type WindowId,
+  buildInitialWindows,
+  buildInitialTopZ,
+} from "@/app/config/windowRegistry";
 
-export type WindowId = "about-me" | "recent-posts" | "yaogoromo";
+export type { WindowId };
 
 type WindowState = {
   open: boolean;
@@ -14,13 +19,6 @@ type WindowManagerContextType = {
   closeWindow: (id: WindowId) => void;
   openWindow: (id: WindowId) => void;
   focusWindow: (id: WindowId) => void;
-  topZ: number;
-};
-
-const INITIAL_WINDOWS: Record<WindowId, WindowState> = {
-  "about-me": { open: true, zIndex: 1 },
-  "recent-posts": { open: true, zIndex: 2 },
-  yaogoromo: { open: false, zIndex: 0 },
 };
 
 const WindowManagerContext = createContext<WindowManagerContextType | null>(
@@ -33,8 +31,8 @@ export function WindowManagerProvider({
   children: React.ReactNode;
 }) {
   const [windows, setWindows] =
-    useState<Record<WindowId, WindowState>>(INITIAL_WINDOWS);
-  const [topZ, setTopZ] = useState(2);
+    useState<Record<WindowId, WindowState>>(buildInitialWindows);
+  const [topZ, setTopZ] = useState(buildInitialTopZ);
 
   const closeWindow = useCallback((id: WindowId) => {
     setWindows((prev) => ({
@@ -69,7 +67,7 @@ export function WindowManagerProvider({
 
   return (
     <WindowManagerContext.Provider
-      value={{ windows, closeWindow, openWindow, focusWindow, topZ }}
+      value={{ windows, closeWindow, openWindow, focusWindow }}
     >
       {children}
     </WindowManagerContext.Provider>

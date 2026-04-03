@@ -27,7 +27,6 @@ export default function Taskbar() {
       ? EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)]
       : "🚀";
   });
-  console.log(isClient, "isClient");
 
   useEffect(() => {
     if (!menuOpen) return;

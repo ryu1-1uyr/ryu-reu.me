@@ -1,18 +1,7 @@
 "use client";
 
-import { useWindowManager, type WindowId } from "@/app/contexts/WindowManager";
-
-type MenuItem = {
-  id: WindowId;
-  label: string;
-  icon: string;
-};
-
-const MENU_ITEMS: MenuItem[] = [
-  { id: "about-me", label: "about_me.exe", icon: "👤" },
-  { id: "recent-posts", label: "recent_posts.log", icon: "📝" },
-  { id: "yaogoromo", label: "yaogoromo.exe", icon: "🌤️" },
-];
+import { useWindowManager } from "@/app/contexts/WindowManager";
+import { WINDOW_REGISTRY } from "@/app/config/windowRegistry";
 
 type Props = {
   open: boolean;
@@ -35,14 +24,14 @@ export default function StartMenu({ open, onClose }: Props) {
 
       {/* メニュー項目 */}
       <div className="py-1">
-        {MENU_ITEMS.map((item) => {
-          const isClosed = !windows[item.id].open;
+        {WINDOW_REGISTRY.map((def) => {
+          const isClosed = !windows[def.id].open;
           return (
             <button
-              key={item.id}
+              key={def.id}
               type="button"
               onClick={() => {
-                openWindow(item.id);
+                openWindow(def.id);
                 onClose();
               }}
               className={`
@@ -55,8 +44,8 @@ export default function StartMenu({ open, onClose }: Props) {
                 }
               `}
             >
-              <span className="text-base">{item.icon}</span>
-              <span className="truncate">{item.label}</span>
+              <span className="text-base">{def.icon}</span>
+              <span className="truncate">{def.title}</span>
               {isClosed && (
                 <span className="ml-auto text-[10px] text-elements-button">
                   起動

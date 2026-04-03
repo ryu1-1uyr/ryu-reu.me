@@ -7,114 +7,55 @@ import {
 } from "@/app/contexts/WindowManager";
 import RetroWindow from "@/app/components/RetroWindow";
 import Taskbar from "@/app/components/Taskbar";
-import WeatherControl from "@/app/_sections/WeatherControl";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
+import {
+  WINDOW_REGISTRY,
+  type WindowId,
+} from "@/app/config/windowRegistry";
 
 type Props = {
-  aboutMe: ReactNode;
-  postList: ReactNode;
+  /** 各ウィンドウの中身を WindowId → ReactNode で渡す */
+  contents: Partial<Record<WindowId, ReactNode>>;
 };
 
-// PC 用の初期配置（親コンテナからの absolute 座標）
-// 画面を 3 分割くらいのイメージで横に並べる
-const INITIAL_POSITIONS = {
-  "about-me": { x: 60, y: 40 },
-  "recent-posts": { x: 520, y: 60 },
-  yaogoromo: { x: 960, y: 80 },
-} as const;
-
-function DesktopInner({ aboutMe, postList }: Props) {
+function DesktopInner({ contents }: Props) {
   const { windows, closeWindow, focusWindow } = useWindowManager();
   const isMobile = useIsMobile();
 
-  if (isMobile) {
-    return (
-      <>
-        <main className="flex flex-col items-center gap-6 p-6 pb-14">
-          {windows["about-me"].open && (
-            <RetroWindow
-              title="about_me.txt"
-              color="pink"
-              className="max-w-md w-full"
-              onClose={() => closeWindow("about-me")}
-              onFocus={() => focusWindow("about-me")}
-            >
-              {aboutMe}
-            </RetroWindow>
-          )}
-          {windows["recent-posts"].open && (
-            <RetroWindow
-              title="recent_posts.log"
-              color="teal"
-              className="max-w-md w-full"
-              onClose={() => closeWindow("recent-posts")}
-              onFocus={() => focusWindow("recent-posts")}
-            >
-              {postList}
-            </RetroWindow>
-          )}
-          {windows["yaogoromo"].open && (
-            <RetroWindow
-              title="yaogoromo.exe"
-              color="orange"
-              className="w-full max-w-xs"
-              onClose={() => closeWindow("yaogoromo")}
-              onFocus={() => focusWindow("yaogoromo")}
-            >
-              <WeatherControl />
-            </RetroWindow>
-          )}
-        </main>
-        <Taskbar />
-      </>
-    );
-  }
-
-  // PC: relative コンテナ + absolute 配置 + ドラッグ可能
   return (
     <>
-      <main className="h-[calc(100dvh-2.5rem)] relative overflow-hidden">
-        {windows["about-me"].open && (
-          <RetroWindow
-            title="about_me.txt"
-            color="pink"
-            className="max-w-md"
-            draggable
-            initialPosition={INITIAL_POSITIONS["about-me"]}
-            zIndex={windows["about-me"].zIndex}
-            onClose={() => closeWindow("about-me")}
-            onFocus={() => focusWindow("about-me")}
-          >
-            {aboutMe}
-          </RetroWindow>
-        )}
-        {windows["recent-posts"].open && (
-          <RetroWindow
-            title="recent_posts.log"
-            color="teal"
-            className="max-w-md"
-            draggable
-            initialPosition={INITIAL_POSITIONS["recent-posts"]}
-            zIndex={windows["recent-posts"].zIndex}
-            onClose={() => closeWindow("recent-posts")}
-            onFocus={() => focusWindow("recent-posts")}
-          >
-            {postList}
-          </RetroWindow>
-        )}
-        {windows["yaogoromo"].open && (
-          <RetroWindow
-            title="yaogoromo.exe"
-            color="orange"
-            draggable
-            initialPosition={INITIAL_POSITIONS["yaogoromo"]}
-            zIndex={windows["yaogoromo"].zIndex}
-            onClose={() => closeWindow("yaogoromo")}
-            onFocus={() => focusWindow("yaogoromo")}
-          >
-            <WeatherControl />
-          </RetroWindow>
-        )}
+      <main
+        className={
+          isMobile
+            ? "flex flex-col items-center gap-6 p-6 pb-14"
+            : "h-[calc(100dvh-2.5rem)] relative overflow-hidden"
+        }
+      >
+        {WINDOW_REGISTRY.map((def) => {
+          if (!windows[def.id].open) return null;
+          const content = contents[def.id];
+          if (!content) return null;
+
+          return (
+            <RetroWindow
+              key={def.id}
+              title={def.title}
+              color={def.color}
+              className={
+                isMobile
+                  ? def.mobileClassName
+                  : def.desktopClassName
+              }
+              draggable={!isMobile}
+              initialPosition={!isMobile ? def.initialPosition : undefined}
+              zIndex={!isMobile ? windows[def.id].zIndex : undefined}
+              onClose={() => closeWindow(def.id)}
+              onFocus={() => focusWindow(def.id)}
+            >
+              {content}
+            </RetroWindow>
+          );
+        })}
       </main>
       <Taskbar />
     </>

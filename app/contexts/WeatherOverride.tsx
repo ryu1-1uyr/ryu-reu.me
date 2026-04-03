@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState } from "react";
 import type { WeatherCondition } from "@/types/weather";
 
 type WeatherOverrideContextType = {
@@ -16,12 +16,7 @@ export function WeatherOverrideProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [override, setOverrideRaw] = useState<WeatherCondition | null>(null);
-
-  const setOverride = useCallback(
-    (condition: WeatherCondition | null) => setOverrideRaw(condition),
-    []
-  );
+  const [override, setOverride] = useState<WeatherCondition | null>(null);
 
   return (
     <WeatherOverrideContext.Provider value={{ override, setOverride }}>
