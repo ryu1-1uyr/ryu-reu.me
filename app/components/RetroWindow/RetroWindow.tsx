@@ -10,6 +10,8 @@ type Props = {
   children: React.ReactNode;
   className?: string;
   draggable?: boolean;
+  /** draggable 時の初期位置（親コンテナからの absolute 座標） */
+  initialPosition?: { x: number; y: number };
   zIndex?: number;
   onClose?: () => void;
   onFocus?: () => void;
@@ -31,20 +33,18 @@ export default function RetroWindow({
   children,
   className = "",
   draggable = false,
+  initialPosition,
   zIndex,
   onClose,
   onFocus,
 }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  // ドラッグされたらフローから外して absolute にする
-  const [absPos, setAbsPos] = useState<{ left: number; top: number } | null>(
-    null
-  );
+  // draggable の場合: absolute 配置で initialPosition からスタート
+  const [pos, setPos] = useState(initialPosition ?? { x: 0, y: 0 });
   const dragRef = useRef<{
     startX: number;
     startY: number;
-    originLeft: number;
-    originTop: number;
+    originX: number;
+    originY: number;
   } | null>(null);
 
   const handlePointerDown = useCallback(
@@ -52,41 +52,24 @@ export default function RetroWindow({
       if (!draggable) return;
       onFocus?.();
 
-      const el = containerRef.current;
-      if (!el) return;
-
-      // 初回ドラッグ: 現在の画面上の位置を取得して absolute に切り替え
-      let currentLeft: number;
-      let currentTop: number;
-
-      if (absPos) {
-        currentLeft = absPos.left;
-        currentTop = absPos.top;
-      } else {
-        const rect = el.getBoundingClientRect();
-        currentLeft = rect.left;
-        currentTop = rect.top;
-        setAbsPos({ left: currentLeft, top: currentTop });
-      }
-
       dragRef.current = {
         startX: e.clientX,
         startY: e.clientY,
-        originLeft: currentLeft,
-        originTop: currentTop,
+        originX: pos.x,
+        originY: pos.y,
       };
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [draggable, absPos, onFocus]
+    [draggable, pos, onFocus]
   );
 
   const handlePointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
-    setAbsPos({
-      left: dragRef.current.originLeft + dx,
-      top: dragRef.current.originTop + dy,
+    setPos({
+      x: dragRef.current.originX + dx,
+      y: dragRef.current.originY + dy,
     });
   }, []);
 
@@ -94,20 +77,17 @@ export default function RetroWindow({
     dragRef.current = null;
   }, []);
 
-  const isDragged = absPos !== null;
-
-  const style: React.CSSProperties = isDragged
+  const style: React.CSSProperties = draggable
     ? {
-        position: "fixed",
-        left: absPos.left,
-        top: absPos.top,
+        position: "absolute",
+        left: pos.x,
+        top: pos.y,
         zIndex: zIndex ?? "auto",
       }
-    : { zIndex: zIndex ?? "auto" };
+    : {};
 
   return (
     <div
-      ref={containerRef}
       className={`
         rounded-lg overflow-scroll
         border-2 border-illustration-stroke
