@@ -15,11 +15,14 @@ type Props = {
   onFocus?: () => void;
 };
 
-const BAR_COLORS: Record<TitleBarColor, string> = {
-  pink: "bg-gradient-to-r from-[#eebbc3] to-[#ff69b4]",
-  blue: "bg-gradient-to-r from-[#232946] to-[#4a6fa5]",
-  teal: "bg-gradient-to-r from-[#2a9d8f] to-[#40c9a2]",
-  orange: "bg-gradient-to-r from-[#f2c57c] to-[#e09f3e]",
+const BAR_COLORS: Record<
+  TitleBarColor,
+  { light: string; dark: string; deep: string }
+> = {
+  pink: { light: "#eebbc3", dark: "#ff69b4", deep: "#fb379f" },
+  blue: { light: "#232946", dark: "#4a6fa5", deep: "#1e2a78" },
+  teal: { light: "#2a9d8f", dark: "#40c9a2", deep: "#1e776f" },
+  orange: { light: "#f2c57c", dark: "#e09f3e", deep: "#d17c2a" },
 };
 
 export default function RetroWindow({
@@ -118,12 +121,14 @@ export default function RetroWindow({
       {/* タイトルバー */}
       <div
         className={`
-          ${BAR_COLORS[color]}
           flex items-center justify-between
           px-3 py-1.5
           border-b-2 border-illustration-stroke
           ${draggable ? "cursor-grab active:cursor-grabbing select-none" : ""}
         `}
+        style={{
+          background: `linear-gradient(to right, ${BAR_COLORS[color].light}, ${BAR_COLORS[color].dark})`,
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -144,7 +149,14 @@ export default function RetroWindow({
               e.stopPropagation();
               onClose?.();
             }}
-            className="w-3 h-3 rounded-sm border border-elements-background/40 bg-[#ff69b4] flex items-center justify-center text-[8px] leading-none text-elements-background hover:bg-[#ff1493] transition-colors"
+            className="w-3 h-3 rounded-sm border border-elements-background/40 flex items-center justify-center text-[8px] leading-none text-elements-background transition-colors"
+            style={{ backgroundColor: BAR_COLORS[color].dark }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = BAR_COLORS[color].deep;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = BAR_COLORS[color].dark;
+            }}
           >
             ✕
           </button>

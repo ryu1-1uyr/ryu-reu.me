@@ -181,8 +181,9 @@ function drawSkyGradient(
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   for (let i = 0; i < 3; i++) {
     let color = lerpColor(prevColors[i], currentColors[i], blendT);
-    if (tintConfig)
+    if (phase !== "night" && phase !== "sunset" && tintConfig) {
       color = lerpColor(color, tintConfig.tint, tintConfig.amount);
+    }
     grad.addColorStop(i / 2, color);
   }
   ctx.fillStyle = grad;

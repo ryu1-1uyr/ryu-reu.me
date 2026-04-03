@@ -21,10 +21,10 @@ function DesktopInner({ aboutMe, postList }: Props) {
 
   return (
     <>
-      <main className="h-[calc(100dvh-2.5rem)]  flex flex-col md:flex-row items-center md:items-end justify-center gap-6 p-6">
+      <main className="flex flex-col md:flex-row items-center md:items-end justify-center gap-6 p-6">
         {windows["about-me"].open && (
           <RetroWindow
-            title="about_me.exe"
+            title="about_me.txt"
             color="pink"
             className="max-w-md"
             draggable={!isMobile}
