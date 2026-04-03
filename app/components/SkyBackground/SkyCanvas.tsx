@@ -65,12 +65,15 @@ type Snowflake = {
   drift: number;
   driftOffset: number;
 };
+// 雲を構成する楕円パーツ
+type CloudBlob = { dx: number; dy: number; rx: number; ry: number };
 type Cloud = {
   x: number;
   y: number;
   width: number;
   speed: number;
   opacity: number;
+  blobs: CloudBlob[];
 };
 
 function createStars(count: number, w: number, h: number): Star[] {
@@ -102,14 +105,58 @@ function createSnow(count: number, w: number, h: number): Snowflake[] {
   }));
 }
 
+function generateCloudBlobs(width: number): CloudBlob[] {
+  // 芯になる大きい楕円
+  const coreCount = Math.random() < 0.5 ? 3 : 5;
+  const blobs: CloudBlob[] = [];
+
+  for (let i = 0; i < coreCount; i++) {
+    blobs.push({
+      dx: (i - (coreCount - 1) / 2) * width * 0.15,
+      dy: 0,
+      rx: width * (0.3 + Math.random() * 0.1),
+      ry: width * (0.15 + Math.random() * 0.05),
+    });
+  }
+
+  // 上のモコモコ
+  const topCount = 30 + Math.floor(Math.random() * 50);
+  for (let i = 0; i < topCount; i++) {
+    const spread = (i / (topCount - 1)) * 2 - 1; // -1 〜 1
+    blobs.push({
+      dx: spread * width * (0.25 + Math.random() * 0.1),
+      dy: -(width * (0.08 + Math.random() * 0.12)),
+      rx: width * (0.12 + Math.random() * 0.12),
+      ry: width * (0.1 + Math.random() * 0.08),
+    });
+  }
+
+  // 下側にちょっとはみ出す楕円
+  const bottomCount = 10 + Math.floor(Math.random() * 20);
+  for (let i = 0; i < bottomCount; i++) {
+    blobs.push({
+      dx: (Math.random() - 0.5) * width * 0.3,
+      dy: width * (0.02 + Math.random() * 0.06),
+      rx: width * (0.15 + Math.random() * 0.1),
+      ry: width * (0.06 + Math.random() * 0.04),
+    });
+  }
+
+  return blobs;
+}
+
 function createClouds(count: number, w: number, h: number): Cloud[] {
-  return Array.from({ length: count }, () => ({
-    x: Math.random() * w,
-    y: Math.random() * h * 0.4 + h * 0.05,
-    width: Math.random() * 200 + 100,
-    speed: Math.random() * 0.3 + 0.1,
-    opacity: Math.random() * 0.3 + 0.15,
-  }));
+  return Array.from({ length: count }, () => {
+    const width = Math.random() * 200 + 100;
+    return {
+      x: Math.random() * w,
+      y: Math.random() * h * 0.4 + h * 0.05,
+      width,
+      speed: Math.random() * 0.3 + 0.1,
+      opacity: Math.random() * 0.3 + 0.15,
+      blobs: generateCloudBlobs(width),
+    };
+  });
 }
 
 // --- 描画関数 ---
@@ -251,24 +298,17 @@ function drawClouds(ctx: CanvasRenderingContext2D, clouds: Cloud[], w: number) {
     ctx.globalAlpha = cloud.opacity;
     ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
 
-    // 楕円を3つ重ねて雲っぽく
-    for (const [dx, dy, rx, ry] of [
-      [0, 0, cloud.width * 0.4, cloud.width * 0.2],
-      [
-        cloud.width * 0.25,
-        -cloud.width * 0.08,
-        cloud.width * 0.3,
-        cloud.width * 0.18,
-      ],
-      [
-        -cloud.width * 0.2,
-        cloud.width * 0.02,
-        cloud.width * 0.25,
-        cloud.width * 0.15,
-      ],
-    ] as [number, number, number, number][]) {
+    for (const blob of cloud.blobs) {
       ctx.beginPath();
-      ctx.ellipse(cloud.x + dx, cloud.y + dy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.ellipse(
+        cloud.x + blob.dx,
+        cloud.y + blob.dy,
+        blob.rx,
+        blob.ry,
+        0,
+        0,
+        Math.PI * 2
+      );
       ctx.fill();
     }
     ctx.restore();
@@ -399,7 +439,8 @@ export default function SkyCanvas({
         weatherCondition === "clouds" ||
         weatherCondition === "rain" ||
         weatherCondition === "drizzle" ||
-        weatherCondition === "thunderstorm"
+        weatherCondition === "thunderstorm" ||
+        weatherCondition === "snow"
       ) {
         drawClouds(ctx, cloudsRef.current, cw);
       }
