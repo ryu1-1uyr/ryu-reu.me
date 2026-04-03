@@ -42,6 +42,18 @@ function lerpColor(a: string, b: string, t: number): string {
   return `rgb(${r},${g},${bl})`;
 }
 
+// 雨系の天気で空をどんよりさせる
+// tint: 混ぜる先の色, amount: 混ぜる割合（0=元のまま, 1=完全にtint色）
+// 昼の場合、amountが0に近づいていくと空が暗くなる
+const WEATHER_TINT: Partial<
+  Record<WeatherCondition, { tint: string; amount: number }>
+> = {
+  drizzle: { tint: "#8a8a9a", amount: 0.25 },
+  rain: { tint: "#6b6b7d", amount: 1.2 },
+  thunderstorm: { tint: "#4a4a5c", amount: 0.55 },
+  snow: { tint: "#a0a0b0", amount: 1.1 },
+};
+
 // --- パーティクル型 ---
 type Star = { x: number; y: number; radius: number; twinkleOffset: number };
 type Raindrop = { x: number; y: number; speed: number; length: number };
@@ -106,19 +118,25 @@ function drawSkyGradient(
   w: number,
   h: number,
   phase: SkyPhase,
-  progress: number
+  progress: number,
+  weather: WeatherCondition
 ) {
   const phaseIdx = PHASE_ORDER.indexOf(phase);
   const prevPhase = PHASE_ORDER[(phaseIdx - 1 + 4) % 4];
   const currentColors = SKY_COLORS[phase];
   const prevColors = SKY_COLORS[prevPhase];
 
+  // 雨系の天気なら灰色方向に寄せてどんよりさせる
+  const tintConfig = WEATHER_TINT[weather];
+
   // フェーズの最初の20%は前フェーズからブレンド
   const blendT = progress < 0.2 ? progress / 0.2 : 1;
 
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   for (let i = 0; i < 3; i++) {
-    const color = lerpColor(prevColors[i], currentColors[i], blendT);
+    let color = lerpColor(prevColors[i], currentColors[i], blendT);
+    if (tintConfig)
+      color = lerpColor(color, tintConfig.tint, tintConfig.amount);
     grad.addColorStop(i / 2, color);
   }
   ctx.fillStyle = grad;
@@ -362,7 +380,7 @@ export default function SkyCanvas({
       const ch = h();
 
       // 1. 空グラデーション
-      drawSkyGradient(ctx, cw, ch, phase, phaseProgress);
+      drawSkyGradient(ctx, cw, ch, phase, phaseProgress, weatherCondition);
 
       if (reducedMotion) {
         // アニメーション無効時はグラデーションだけ

@@ -3,7 +3,11 @@
 import { useWeatherOverride } from "@/app/contexts/WeatherOverride";
 import type { WeatherCondition } from "@/types/weather";
 
-const WEATHER_OPTIONS: { emoji: string; label: string; condition: WeatherCondition }[] = [
+const WEATHER_OPTIONS: {
+  emoji: string;
+  label: string;
+  condition: WeatherCondition;
+}[] = [
   { emoji: "☀️", label: "はれ", condition: "clear" },
   { emoji: "☁️", label: "くもり", condition: "clouds" },
   { emoji: "☔️", label: "あめ", condition: "rain" },
@@ -17,18 +21,21 @@ export default function WeatherControl() {
   return (
     <div className="text-elements-headline px-5 py-6 space-y-4">
       <p className="text-sm text-elements-paragraph leading-relaxed">
-        空の天気を操作できるよ。もう一度押すと元に戻る。
+        空の天気を操作できるよ。
       </p>
-      <div className="flex flex-wrap gap-2">
+      {override && (
+        <p className="text-xs text-elements-button">
+          現在: {WEATHER_OPTIONS.find((o) => o.condition === override)?.label}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-1">
         {WEATHER_OPTIONS.map((opt) => {
           const isActive = override === opt.condition;
           return (
             <button
               key={opt.condition}
               type="button"
-              onClick={() =>
-                setOverride(isActive ? null : opt.condition)
-              }
+              onClick={() => setOverride(isActive ? null : opt.condition)}
               className={`
                 relative group flex items-center justify-center
                 w-12 h-12 rounded-xl
@@ -49,11 +56,6 @@ export default function WeatherControl() {
           );
         })}
       </div>
-      {override && (
-        <p className="text-xs text-elements-button">
-          現在: {WEATHER_OPTIONS.find((o) => o.condition === override)?.label}
-        </p>
-      )}
     </div>
   );
 }
