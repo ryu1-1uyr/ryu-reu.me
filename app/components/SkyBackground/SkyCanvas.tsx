@@ -533,8 +533,11 @@ export default function SkyCanvas({
 
       const img = new Image();
       img.onload = () => {
-        const maxW = 120;
-        const scale = Math.min(maxW / drawing.width, maxW / drawing.height);
+        const targetSize = 80 + Math.random() * 120; // 80〜200px でランダム
+        const scale = Math.min(
+          targetSize / drawing.width,
+          targetSize / drawing.height
+        );
         const displayWidth = drawing.width * scale;
         const displayHeight = drawing.height * scale;
         const w = window.innerWidth;
@@ -548,11 +551,11 @@ export default function SkyCanvas({
         driftingDrawingsRef.current.push({
           id: drawing.id,
           image: img,
-          x: -displayWidth,
-          y: Math.random() * h * 0.3 + h * 0.05,
+          x: Math.random() * (w + displayWidth) - displayWidth, // 画面全体にランダム散布
+          y: Math.random() * h * 0.6 + h * 0.05, // 上5%〜65%の広い範囲
           displayWidth,
           displayHeight,
-          speed: Math.random() * 0.4 + 0.2,
+          speed: 0.15 + Math.random() * 0.85, // 0.15〜1.0 でランダム
           opacity: Math.random() * 0.3 + 0.4,
         });
       };
