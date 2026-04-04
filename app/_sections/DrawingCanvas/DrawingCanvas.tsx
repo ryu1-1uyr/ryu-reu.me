@@ -228,6 +228,10 @@ export default function DrawingCanvas() {
 
         {/* 飛び立ちアニメ */}
         {flyingImage && (
+          // flyingImage は canvas.toDataURL() で生成された data:image/png;base64,... な URL で、Next.js の <Image> は data: スキームを受け付けない（最適化のために静的パス or 設定済みリモートドメインが必要）
+          // 無理やり使おうとするとランタイムエラーになる。
+          // SkyCanvas 側の <img> (OgCard 含む) も Satori 内部 or Canvas API 経由なのでブラウザ標準の img で正しい。
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={flyingImage}
             alt=""
