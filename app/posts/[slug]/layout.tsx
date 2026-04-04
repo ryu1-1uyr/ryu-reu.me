@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import IconImage from "@/public/me.png";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -28,6 +27,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .trim()
     .slice(0, 120);
 
+  const ogImageUrl = `/api/og?slug=${encodeURIComponent(post.slug)}`;
+
   return {
     metadataBase: new URL("https://www.ryu-reu.me"),
     title: post.title,
@@ -49,9 +50,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: `/posts/${post.slug}`,
       locale: "ja_JP",
-      images: [
-        { url: IconImage.src, width: 400, height: 400, alt: post.title },
-      ],
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: post.title }],
     },
     twitter: {
       card: "summary_large_image",
@@ -59,7 +58,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       creator: "@reu_00_00",
       title: post.title,
       description,
-      images: [IconImage.src],
+      images: [ogImageUrl],
     },
   };
 }

@@ -13,8 +13,8 @@ import { SkyBackgroundWrapper } from "@/app/components/SkyBackground";
 const yuseiMagic = Yusei_Magic({ weight: "400", subsets: ["latin"] });
 
 const siteUrl = "https://www.ryu-reu.me";
-const siteName = "りゆうの実験場";
-const siteDescription = "なんかブログとか";
+const siteName = "りゆうのブログ: 実験場";
+const siteDescription = "ブログとか思いついた機能をガンガン乗せるマイページ";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

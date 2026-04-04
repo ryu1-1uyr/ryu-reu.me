@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { OgCard } from "@/app/components/OgCard/OgCard";
 
 export const runtime = "nodejs";
 
@@ -44,23 +45,11 @@ const fontOptions = async () => ({
 export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("slug");
 
+  const avatarUrl = `${request.nextUrl.origin}/me.png`;
+
   if (!slug) {
     return new ImageResponse(
-      (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "#232946",
-            fontFamily: "Yusei Magic",
-          }}
-        >
-          <span style={{ color: "#fffffe", fontSize: 48 }}>りゆうの実験場</span>
-        </div>
-      ),
+      <OgCard title="りゆうの実験場" avatarUrl={avatarUrl} />,
       await fontOptions()
     );
   }
@@ -72,113 +61,28 @@ export async function GET(request: NextRequest) {
 
   if (!post) {
     return new ImageResponse(
-      (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "#232946",
-            fontFamily: "Yusei Magic",
-          }}
-        >
-          <span style={{ color: "#fffffe", fontSize: 48 }}>Not Found</span>
-        </div>
-      ),
+      <OgCard title="記事が見つかりません" avatarUrl={avatarUrl} />,
       await fontOptions()
     );
   }
 
-  const imageUrl = extractFirstImageUrl(post.content);
+  const thumbnailUrl = extractFirstImageUrl(post.content);
+
+  const description = post.content
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/[#*`~>\-|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
 
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          backgroundColor: "#232946",
-          fontFamily: "Yusei Magic",
-          padding: 60,
-        }}
-      >
-        {/* 左: タイトル + サイト名 */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            paddingRight: imageUrl ? 40 : 0,
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span
-              style={{
-                color: "#fffffe",
-                fontSize: 52,
-                fontWeight: 700,
-                lineHeight: 1.3,
-                overflow: "hidden",
-                display: "-webkit-box",
-                WebkitLineClamp: 4,
-                WebkitBoxOrient: "vertical",
-              }}
-            >
-              {post.title}
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`${request.nextUrl.origin}/me.png`}
-              alt=""
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-              }}
-            />
-            <span
-              style={{
-                color: "#eebbc3",
-                fontSize: 24,
-              }}
-            >
-              りゆうの実験場
-            </span>
-          </div>
-        </div>
-
-        {/* 右: サムネイル（あれば） */}
-        {imageUrl && (
-          <div
-            style={{
-              width: 400,
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageUrl}
-              alt=""
-              style={{
-                width: 400,
-                height: 400,
-                objectFit: "cover",
-                borderRadius: 20,
-              }}
-            />
-          </div>
-        )}
-      </div>
-    ),
+    <OgCard
+      title={post.title}
+      description={description}
+      thumbnailUrl={thumbnailUrl}
+      avatarUrl={avatarUrl}
+    />,
     await fontOptions()
   );
 }
