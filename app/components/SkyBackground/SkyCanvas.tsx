@@ -558,7 +558,7 @@ export default function SkyCanvas({
         driftingDrawingsRef.current.push({
           id: drawing.id,
           image: img,
-          x: Math.random() * (w + displayWidth) - displayWidth, // 画面全体にランダム散布
+          x: -displayWidth, // 左端から流れてくる
           y: Math.random() * h * 0.6 + h * 0.05, // 上5%〜65%の広い範囲
           displayWidth,
           displayHeight,
