@@ -20,13 +20,22 @@ function extractFirstImageUrl(content: string): string | null {
 const FONT_URL =
   "https://fonts.gstatic.com/s/yuseimagic/v12/yYLt0hbAyuCmoo5wlhPkpjHR.ttf";
 
+let fontCache: ArrayBuffer | null = null;
+
+async function getFontData(): Promise<ArrayBuffer> {
+  if (fontCache) return fontCache;
+  const data = await fetch(FONT_URL).then((res) => res.arrayBuffer());
+  fontCache = data;
+  return data;
+}
+
 const fontOptions = async () => ({
   width: 1200 as const,
   height: 630 as const,
   fonts: [
     {
       name: "Yusei Magic",
-      data: await fetch(FONT_URL).then((res) => res.arrayBuffer()),
+      data: await getFontData(),
       style: "normal" as const,
     },
   ],
