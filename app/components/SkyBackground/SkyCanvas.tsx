@@ -2,11 +2,13 @@
 
 import { useRef, useEffect } from "react";
 import type { SkyPhase, WeatherCondition } from "@/types/weather";
+import type { SkyDrawing } from "@/app/contexts/SkyDrawings";
 
 type Props = {
   phase: SkyPhase;
   phaseProgress: number;
   weatherCondition: WeatherCondition;
+  skyDrawings?: SkyDrawing[];
 };
 
 // --- 色定義 ---
@@ -475,11 +477,40 @@ function drawSnow(
   }
 }
 
+// --- ドリフトお絵描き ---
+type DriftingDrawing = {
+  id: string;
+  image: HTMLImageElement;
+  x: number;
+  y: number;
+  displayWidth: number;
+  displayHeight: number;
+  speed: number;
+  opacity: number;
+};
+
+function drawDriftingDrawings(
+  ctx: CanvasRenderingContext2D,
+  drawings: DriftingDrawing[],
+  w: number
+) {
+  for (const d of drawings) {
+    d.x += d.speed;
+    if (d.x > w + d.displayWidth) d.x = -d.displayWidth;
+
+    ctx.save();
+    ctx.globalAlpha = d.opacity;
+    ctx.drawImage(d.image, d.x, d.y, d.displayWidth, d.displayHeight);
+    ctx.restore();
+  }
+}
+
 // --- メインコンポーネント ---
 export default function SkyCanvas({
   phase,
   phaseProgress,
   weatherCondition,
+  skyDrawings,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const starsRef = useRef<Star[]>([]);
@@ -487,7 +518,47 @@ export default function SkyCanvas({
   const snowRef = useRef<Snowflake[]>([]);
   const cloudsRef = useRef<Cloud[]>([]);
   const lightningRef = useRef<LightningState>(createLightningState());
+  const driftingDrawingsRef = useRef<DriftingDrawing[]>([]);
   const initedRef = useRef(false);
+
+  // skyDrawings の変化を driftingDrawingsRef に同期
+  useEffect(() => {
+    if (!skyDrawings || skyDrawings.length === 0) return;
+    const currentIds = new Set(driftingDrawingsRef.current.map((d) => d.id));
+    const isMobile = window.innerWidth < 768;
+    const maxDrawings = isMobile ? 5 : 15;
+
+    for (const drawing of skyDrawings) {
+      if (currentIds.has(drawing.id)) continue;
+
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 120;
+        const scale = Math.min(maxW / drawing.width, maxW / drawing.height);
+        const displayWidth = drawing.width * scale;
+        const displayHeight = drawing.height * scale;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // 上限超えたら古いの除去
+        if (driftingDrawingsRef.current.length >= maxDrawings) {
+          driftingDrawingsRef.current.shift();
+        }
+
+        driftingDrawingsRef.current.push({
+          id: drawing.id,
+          image: img,
+          x: -displayWidth,
+          y: Math.random() * h * 0.3 + h * 0.05,
+          displayWidth,
+          displayHeight,
+          speed: Math.random() * 0.4 + 0.2,
+          opacity: Math.random() * 0.3 + 0.4,
+        });
+      };
+      img.src = drawing.dataURL;
+    }
+  }, [skyDrawings]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -576,6 +647,11 @@ export default function SkyCanvas({
         weatherCondition === "snow"
       ) {
         drawClouds(ctx, cloudsRef.current, cw);
+      }
+
+      // お絵描きドリフト（雲と同じ層）
+      if (driftingDrawingsRef.current.length > 0) {
+        drawDriftingDrawings(ctx, driftingDrawingsRef.current, cw);
       }
 
       if (

@@ -7,6 +7,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 import { WeatherOverrideProvider } from "@/app/contexts/WeatherOverride";
+import { SkyDrawingsProvider } from "@/app/contexts/SkyDrawings";
 import { SkyBackgroundWrapper } from "@/app/components/SkyBackground";
 
 const yuseiMagic = Yusei_Magic({ weight: "400", subsets: ["latin"] });
@@ -54,11 +55,13 @@ export default function RootLayout({
         className={`${yuseiMagic.className} flex flex-col min-h-screen bg-elements-background`}
       >
         <WeatherOverrideProvider>
-          <SkyBackgroundWrapper />
-          <PostsCacheProvider>
-            <div className="flex-1">{children}</div>
-            <Footer />
-          </PostsCacheProvider>
+          <SkyDrawingsProvider>
+            <SkyBackgroundWrapper />
+            <PostsCacheProvider>
+              <div className="flex-1">{children}</div>
+              <Footer />
+            </PostsCacheProvider>
+          </SkyDrawingsProvider>
         </WeatherOverrideProvider>
       </body>
     </html>
