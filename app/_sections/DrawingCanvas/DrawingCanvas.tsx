@@ -8,6 +8,17 @@ type Tool = "pen" | "eraser";
 const CANVAS_W = 320;
 const CANVAS_H = 240;
 
+// Tailwind のパージ対策で完全なクラス名を列挙する
+const FLY_ANIMATIONS = [
+  "animate-fly-to-sky-straight",
+  "animate-fly-to-sky-left",
+  "animate-fly-to-sky-right",
+] as const;
+
+function pickFlyAnimation() {
+  return FLY_ANIMATIONS[Math.floor(Math.random() * FLY_ANIMATIONS.length)];
+}
+
 export default function DrawingCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
@@ -15,6 +26,7 @@ export default function DrawingCanvas() {
 
   const [tool, setTool] = useState<Tool>("pen");
   const [flyingImage, setFlyingImage] = useState<string | null>(null);
+  const [flyAnimation, setFlyAnimation] = useState<string>("");
   const { addDrawing } = useSkyDrawings();
 
   const getPos = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -95,7 +107,9 @@ export default function DrawingCanvas() {
 
     const dataURL = canvas.toDataURL("image/png");
 
-    // 飛び立ちアニメ用にスナップショットをセット
+    // ランダムなモーションを選んで飛び立ちアニメ
+    const anim = pickFlyAnimation();
+    setFlyAnimation(anim);
     setFlyingImage(dataURL);
 
     // コンテキストに追加（すぐ空に現れる）
@@ -106,11 +120,12 @@ export default function DrawingCanvas() {
       height: CANVAS_H,
     });
 
-    // アニメ後にクリア
+    // アニメ後にクリア（最長パターン 2.4s に合わせる）
     setTimeout(() => {
       setFlyingImage(null);
+      setFlyAnimation("");
       handleClear();
-    }, 800);
+    }, 2500);
   }, [addDrawing, handleClear]);
 
   return (
@@ -173,7 +188,7 @@ export default function DrawingCanvas() {
           <img
             src={flyingImage}
             alt=""
-            className="absolute inset-0 w-full h-full rounded pointer-events-none animate-fly-to-sky"
+            className={`absolute inset-0 w-full h-full rounded pointer-events-none ${flyAnimation}`}
           />
         )}
       </div>

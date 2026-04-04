@@ -14,13 +14,74 @@ const config: Config = {
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
       keyframes: {
-        "fly-to-sky": {
-          "0%": { transform: "translateY(0) scale(1)", opacity: "1" },
-          "100%": { transform: "translateY(-100vh) scale(0.3)", opacity: "0" },
+        // A: ふわっと真上にゆっくり昇天
+        "fly-to-sky-straight": {
+          "0%": {
+            transform: "translate(0, 0) scale(1)",
+            opacity: "1",
+            animationTimingFunction: "ease-out",
+          },
+          "20%": { transform: "translate(0, -15vh) scale(0.85)", opacity: "1" },
+          "65%": {
+            transform: "translate(0, -60vh) scale(0.5)",
+            opacity: "0.7",
+            animationTimingFunction: "ease-in",
+          },
+          "100%": {
+            transform: "translate(0, -105vh) scale(0.15)",
+            opacity: "0",
+          },
+        },
+        // B: 左の弧を描きながらゆっくり流れる
+        "fly-to-sky-left": {
+          "0%": {
+            transform: "translate(0, 0) scale(1) rotate(0deg)",
+            opacity: "1",
+            animationTimingFunction: "ease-out",
+          },
+          "20%": {
+            transform: "translate(-4vw, -18vh) scale(0.85) rotate(-4deg)",
+            opacity: "1",
+          },
+          "55%": {
+            transform: "translate(-18vw, -55vh) scale(0.52) rotate(-12deg)",
+            opacity: "0.7",
+            animationTimingFunction: "ease-in",
+          },
+          "100%": {
+            transform: "translate(-32vw, -105vh) scale(0.15) rotate(-22deg)",
+            opacity: "0",
+          },
+        },
+        // C: 右にゆっくりふわりと流れる
+        "fly-to-sky-right": {
+          "0%": {
+            transform: "translate(0, 0) scale(1) rotate(0deg)",
+            opacity: "1",
+          },
+          "20%": {
+            transform: "translate(4vw, -15vh) scale(0.85) rotate(4deg)",
+            opacity: "1",
+            animationTimingFunction: "ease-out",
+          },
+          "55%": {
+            transform: "translate(14vw, -52vh) scale(0.52) rotate(11deg)",
+            opacity: "0.7",
+          },
+          "100%": {
+            transform: "translate(24vw, -105vh) scale(0.15) rotate(20deg)",
+            opacity: "0",
+            animationTimingFunction: "ease-in",
+          },
         },
       },
       animation: {
-        "fly-to-sky": "fly-to-sky 0.8s ease-in forwards",
+        "fly-to-sky-straight":
+          "fly-to-sky-straight 2.2s cubic-bezier(0.37,0,0.63,1) forwards",
+        "fly-to-sky-left":
+          "fly-to-sky-left 2.4s cubic-bezier(0.37,0,0.63,1) forwards",
+        "fly-to-sky-right":
+          "fly-to-sky-right 2.2s cubic-bezier(0.37,0,0.63,1) forwards",
       },
       colors: {
         elements: {
