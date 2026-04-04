@@ -23,6 +23,7 @@ export default function DrawingCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
+  const fadeRafRef = useRef<number | null>(null);
 
   const [tool, setTool] = useState<Tool>("pen");
   const [flyingImage, setFlyingImage] = useState<string | null>(null);
@@ -39,15 +40,58 @@ export default function DrawingCanvas() {
     };
   }, []);
 
+  // rAF で canvas をじわっとフェードアウトしてクリア
+  const startFadeOut = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    if (fadeRafRef.current) cancelAnimationFrame(fadeRafRef.current);
+
+    const fade = () => {
+      ctx.globalCompositeOperation = "destination-out";
+      // 1フレームごとに約5%ずつ消す → ~2sでほぼ透明（0.95^120 ≈ 0.002）
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+      ctx.globalCompositeOperation = "source-over";
+
+      // まだ残ってたら続ける
+      const pixels = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H).data;
+      const hasContent = pixels.some((_, i) => i % 4 === 3 && pixels[i] > 4);
+      if (hasContent) {
+        fadeRafRef.current = requestAnimationFrame(fade);
+      } else {
+        ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+        fadeRafRef.current = null;
+      }
+    };
+
+    fadeRafRef.current = requestAnimationFrame(fade);
+  }, []);
+
+  const stopFade = useCallback(() => {
+    if (fadeRafRef.current) {
+      cancelAnimationFrame(fadeRafRef.current);
+      fadeRafRef.current = null;
+    }
+  }, []);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      // フェード中に描き始めたら残像ごとクリアして白紙に
+      if (fadeRafRef.current) {
+        stopFade();
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+      }
       canvas.setPointerCapture(e.pointerId);
       isDrawing.current = true;
       lastPos.current = getPos(e);
     },
-    [getPos]
+    [getPos, stopFade]
   );
 
   const handlePointerMove = useCallback(
@@ -76,7 +120,6 @@ export default function DrawingCanvas() {
       ctx.lineJoin = "round";
       ctx.stroke();
 
-      // composite を戻す
       ctx.globalCompositeOperation = "source-over";
       lastPos.current = pos;
     },
@@ -89,16 +132,16 @@ export default function DrawingCanvas() {
   }, []);
 
   const handleClear = useCallback(() => {
+    stopFade();
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-  }, []);
+  }, [stopFade]);
 
   const handleFly = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // 何も描かれてなかったら無視
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const pixels = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H).data;
@@ -106,27 +149,27 @@ export default function DrawingCanvas() {
     if (!hasContent) return;
 
     const dataURL = canvas.toDataURL("image/png");
-
-    // ランダムなモーションを選んで飛び立ちアニメ
-    const anim = pickFlyAnimation();
-    setFlyAnimation(anim);
-    setFlyingImage(dataURL);
-
-    // コンテキストに追加（すぐ空に現れる）
-    addDrawing({
+    const drawingData = {
       id: crypto.randomUUID(),
       dataURL,
       width: CANVAS_W,
       height: CANVAS_H,
-    });
+    };
 
-    // アニメ後にクリア（最長パターン 2.4s に合わせる）
+    const anim = pickFlyAnimation();
+    setFlyAnimation(anim);
+    setFlyingImage(dataURL);
+
+    // canvas はじわっとフェードアウト
+    startFadeOut();
+
+    // アニメ終了後に空に追加 + オーバーレイ除去
     setTimeout(() => {
+      addDrawing(drawingData);
       setFlyingImage(null);
       setFlyAnimation("");
-      handleClear();
     }, 2500);
-  }, [addDrawing, handleClear]);
+  }, [addDrawing, startFadeOut]);
 
   return (
     <div className="flex flex-col gap-3 p-3">
