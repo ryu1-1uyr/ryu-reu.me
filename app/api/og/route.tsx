@@ -1,53 +1,58 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
 import { OgCard } from "@/app/components/OgCard/OgCard";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
-// キャッシュ: サーバー起動後に一度だけ読み込む
-let fontCache: ArrayBuffer | null = null;
+// ビルド時にバンドルされる（実行時のネットワーク・ディスクI/O なし）
+const fontData = fetch(
+  new URL("../../../public/fonts/YuseiMagic-Regular.ttf", import.meta.url)
+).then((res) => res.arrayBuffer());
 
-async function getFontData(): Promise<ArrayBuffer> {
-  if (fontCache) return fontCache;
-  const fontPath = path.join(process.cwd(), "public/fonts/YuseiMagic-Regular.ttf");
-  const data = await readFile(fontPath);
-  fontCache = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
-  return fontCache;
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  // 一度に大量スプレッドするとスタック溢れるので、チャンクに分けて処理
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
-const CACHE_HEADERS = {
-  "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-};
+const avatarData = fetch(
+  new URL("../../../public/me.png", import.meta.url)
+).then(async (res) => {
+  const buf = await res.arrayBuffer();
+  return `data:image/png;base64,${arrayBufferToBase64(buf)}`;
+});
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl;
+  const { searchParams } = request.nextUrl;
   const title = searchParams.get("title") ?? "りゆうの実験場";
   const description = searchParams.get("desc") ?? undefined;
-  const avatarUrl = `${origin}/me.png`;
 
-  const fontData = await getFontData();
-
-  const options = {
-    width: 1200 as const,
-    height: 630 as const,
-    fonts: [
-      {
-        name: "Yusei Magic",
-        data: fontData,
-        style: "normal" as const,
-      },
-    ],
-  };
+  const [font, avatar] = await Promise.all([fontData, avatarData]);
 
   const response = new ImageResponse(
-    <OgCard title={title} description={description} avatarUrl={avatarUrl} />,
-    options
+    <OgCard title={title} description={description} avatarUrl={avatar} />,
+    {
+      width: 1200,
+      height: 630,
+      fonts: [
+        {
+          name: "Yusei Magic",
+          data: font,
+          style: "normal" as const,
+        },
+      ],
+    }
   );
 
-  // Vercel Edge Cache に乗せる
-  response.headers.set("Cache-Control", CACHE_HEADERS["Cache-Control"]);
+  response.headers.set(
+    "Cache-Control",
+    "public, max-age=86400, stale-while-revalidate=604800"
+  );
 
   return response;
 }
