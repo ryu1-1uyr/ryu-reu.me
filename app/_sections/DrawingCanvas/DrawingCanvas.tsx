@@ -17,18 +17,15 @@ export default function DrawingCanvas() {
   const [flyingImage, setFlyingImage] = useState<string | null>(null);
   const { addDrawing } = useSkyDrawings();
 
-  const getPos = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return { x: 0, y: 0 };
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
-        y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
-      };
-    },
-    []
-  );
+  const getPos = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
+      y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
+    };
+  }, []);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -161,7 +158,10 @@ export default function DrawingCanvas() {
           width={CANVAS_W}
           height={CANVAS_H}
           className="w-full rounded border-2 border-illustration-stroke/30 bg-white cursor-crosshair"
-          style={{ touchAction: "none", aspectRatio: `${CANVAS_W}/${CANVAS_H}` }}
+          style={{
+            touchAction: "none",
+            aspectRatio: `${CANVAS_W}/${CANVAS_H}`,
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
