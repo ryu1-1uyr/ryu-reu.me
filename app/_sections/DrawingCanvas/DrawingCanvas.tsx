@@ -8,6 +8,19 @@ type Tool = "pen" | "eraser";
 const CANVAS_W = 320;
 const CANVAS_H = 240;
 
+// ---- ペンカラーパレット（調整しやすいように分離） ----
+// サイトのカラーパレット準拠。夜空でも見えるよう明るめの色を中心に選定。
+const PEN_COLORS = [
+  { label: "ネイビー", value: "#232946" }, // elements-background（昼向き）
+  { label: "ホワイト", value: "#fffffe" }, // elements-headline（夜空に映える）
+  { label: "ラベンダー", value: "#b8c1ec" }, // elements-paragraph
+  { label: "ピンク", value: "#eebbc3" }, // elements-button / illustration-highlight
+  { label: "ゴールド", value: "#f2c57c" }, // illustration-tertiary
+  { label: "ティール", value: "#40c9a2" }, // BAR_COLORS teal.dark
+] as const;
+
+type PenColor = (typeof PEN_COLORS)[number]["value"];
+
 // Tailwind のパージ対策で完全なクラス名を列挙する
 const FLY_ANIMATIONS = [
   "animate-fly-to-sky-straight",
@@ -26,6 +39,7 @@ export default function DrawingCanvas() {
   const fadeRafRef = useRef<number | null>(null);
 
   const [tool, setTool] = useState<Tool>("pen");
+  const [penColor, setPenColor] = useState<PenColor>("#fffffe"); // デフォルトはホワイト（夜空でも見える）
   const [flyingImage, setFlyingImage] = useState<string | null>(null);
   const [flyAnimation, setFlyAnimation] = useState<string>("");
   const { addDrawing } = useSkyDrawings();
@@ -49,19 +63,21 @@ export default function DrawingCanvas() {
 
     if (fadeRafRef.current) cancelAnimationFrame(fadeRafRef.current);
 
+    // ~2s フェード（60fps × 2s = 120 フレーム）
+    let frame = 0;
+    const totalFrames = 120;
+
     const fade = () => {
+      frame++;
       ctx.globalCompositeOperation = "destination-out";
-      // 1フレームごとに約5%ずつ消す → ~2sでほぼ透明（0.95^120 ≈ 0.002）
       ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
       ctx.globalCompositeOperation = "source-over";
 
-      // まだ残ってたら続ける
-      const pixels = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H).data;
-      const hasContent = pixels.some((_, i) => i % 4 === 3 && pixels[i] > 4);
-      if (hasContent) {
+      if (frame < totalFrames) {
         fadeRafRef.current = requestAnimationFrame(fade);
       } else {
+        // 確実に完全クリア
         ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
         fadeRafRef.current = null;
       }
@@ -109,7 +125,7 @@ export default function DrawingCanvas() {
 
       if (tool === "pen") {
         ctx.globalCompositeOperation = "source-over";
-        ctx.strokeStyle = "#232946";
+        ctx.strokeStyle = penColor;
         ctx.lineWidth = 3;
       } else {
         ctx.globalCompositeOperation = "destination-out";
@@ -123,7 +139,7 @@ export default function DrawingCanvas() {
       ctx.globalCompositeOperation = "source-over";
       lastPos.current = pos;
     },
-    [tool, getPos]
+    [tool, penColor, getPos]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -209,14 +225,37 @@ export default function DrawingCanvas() {
         </button>
       </div>
 
+      {/* カラーパレット（ペン選択中のみ表示） */}
+      {tool === "pen" && (
+        <div className="flex items-center gap-1.5">
+          {PEN_COLORS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              title={c.label}
+              onClick={() => setPenColor(c.value)}
+              className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110"
+              style={{
+                backgroundColor: c.value,
+                borderColor:
+                  penColor === c.value ? "#fffffe" : "rgba(18,22,41,0.4)",
+                boxShadow:
+                  penColor === c.value ? `0 0 0 1px #121629` : undefined,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       {/* キャンバス */}
       <div className="relative">
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
           height={CANVAS_H}
-          className="w-full rounded border-2 border-illustration-stroke/30 bg-white cursor-crosshair"
+          className="w-full rounded border-2 border-illustration-stroke/30 cursor-crosshair"
           style={{
+            backgroundColor: "#dfe1ee",
             touchAction: "none",
             aspectRatio: `${CANVAS_W}/${CANVAS_H}`,
           }}
