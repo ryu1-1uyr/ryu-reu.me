@@ -1,88 +1,58 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { OgCard } from "@/app/components/OgCard/OgCard";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
-// 記事本文から最初の画像 URL を抽出
-function extractFirstImageUrl(content: string): string | null {
-  // Markdown: ![alt](url)
-  const mdMatch = content.match(/!\[[^\]]*\]\(([^)]+)\)/);
-  if (mdMatch) return mdMatch[1];
+// ビルド時にバンドルされる（実行時のネットワーク・ディスクI/O なし）
+const fontData = fetch(
+  new URL("../../../public/fonts/YuseiMagic-Regular.ttf", import.meta.url)
+).then((res) => res.arrayBuffer());
 
-  // HTML: <img src="url"
-  const htmlMatch = content.match(/<img[^>]+src=["']([^"']+)["']/);
-  if (htmlMatch) return htmlMatch[1];
-
-  return null;
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  // 一度に大量スプレッドするとスタック溢れるので、チャンクに分けて処理
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
-const FONT_URL =
-  "https://fonts.gstatic.com/s/yuseimagic/v12/yYLt0hbAyuCmoo5wlhPkpjHR.ttf";
-
-let fontCache: ArrayBuffer | null = null;
-
-async function getFontData(): Promise<ArrayBuffer> {
-  if (fontCache) return fontCache;
-  const data = await fetch(FONT_URL).then((res) => res.arrayBuffer());
-  fontCache = data;
-  return data;
-}
-
-const fontOptions = async () => ({
-  width: 1200 as const,
-  height: 630 as const,
-  fonts: [
-    {
-      name: "Yusei Magic",
-      data: await getFontData(),
-      style: "normal" as const,
-    },
-  ],
+const avatarData = fetch(
+  new URL("../../../public/me.png", import.meta.url)
+).then(async (res) => {
+  const buf = await res.arrayBuffer();
+  return `data:image/png;base64,${arrayBufferToBase64(buf)}`;
 });
 
 export async function GET(request: NextRequest) {
-  const slug = request.nextUrl.searchParams.get("slug");
+  const { searchParams } = request.nextUrl;
+  const title = searchParams.get("title") ?? "りゆうの実験場";
+  const description = searchParams.get("desc") ?? undefined;
 
-  const avatarUrl = `${request.nextUrl.origin}/me.png`;
+  const [font, avatar] = await Promise.all([fontData, avatarData]);
 
-  if (!slug) {
-    return new ImageResponse(
-      <OgCard title="りゆうの実験場" avatarUrl={avatarUrl} />,
-      await fontOptions()
-    );
-  }
-
-  const post = await prisma.post.findUnique({
-    where: { slug: decodeURIComponent(slug) },
-    select: { title: true, content: true },
-  });
-
-  if (!post) {
-    return new ImageResponse(
-      <OgCard title="記事が見つかりません" avatarUrl={avatarUrl} />,
-      await fontOptions()
-    );
-  }
-
-  const thumbnailUrl = extractFirstImageUrl(post.content);
-
-  const description = post.content
-    .replace(/!\[.*?\]\(.*?\)/g, "")
-    .replace(/<[^>]*>/g, "")
-    .replace(/[#*`~>\-|]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120);
-
-  return new ImageResponse(
-    <OgCard
-      title={post.title}
-      description={description}
-      thumbnailUrl={thumbnailUrl}
-      avatarUrl={avatarUrl}
-    />,
-    await fontOptions()
+  const response = new ImageResponse(
+    <OgCard title={title} description={description} avatarUrl={avatar} />,
+    {
+      width: 1200,
+      height: 630,
+      fonts: [
+        {
+          name: "Yusei Magic",
+          data: font,
+          style: "normal" as const,
+        },
+      ],
+    }
   );
+
+  response.headers.set(
+    "Cache-Control",
+    "public, max-age=86400, stale-while-revalidate=604800"
+  );
+
+  return response;
 }

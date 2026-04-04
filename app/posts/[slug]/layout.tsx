@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .trim()
     .slice(0, 120);
 
-  const ogImageUrl = `/api/og?slug=${encodeURIComponent(post.slug)}`;
+  const ogImageUrl = `/api/og?title=${encodeURIComponent(post.title)}&desc=${encodeURIComponent(description)}`;
 
   return {
     metadataBase: new URL("https://www.ryu-reu.me"),
