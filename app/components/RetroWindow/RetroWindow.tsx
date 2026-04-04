@@ -107,7 +107,7 @@ export default function RetroWindow({
           ${draggable ? "cursor-grab active:cursor-grabbing select-none" : ""}
         `}
         style={{
-          background: `linear-gradient(to right, ${BAR_COLORS[color].light}, ${BAR_COLORS[color].dark})`,
+          background: `linear-gradient(to right, ${BAR_COLORS[color].dark}, ${BAR_COLORS[color].light})`,
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

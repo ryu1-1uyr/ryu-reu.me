@@ -487,20 +487,27 @@ type DriftingDrawing = {
   displayHeight: number;
   speed: number;
   opacity: number;
+  floatOffset: number; // sin の位相オフセット（ふよふよ）
+  floatAmp: number; // 上下振れ幅 (px)
+  floatFreq: number; // 上下の周期
 };
 
 function drawDriftingDrawings(
   ctx: CanvasRenderingContext2D,
   drawings: DriftingDrawing[],
-  w: number
+  w: number,
+  time: number
 ) {
   for (const d of drawings) {
     d.x += d.speed;
     if (d.x > w + d.displayWidth) d.x = -d.displayWidth;
 
+    const floatY =
+      d.y + Math.sin(time * d.floatFreq + d.floatOffset) * d.floatAmp;
+
     ctx.save();
     ctx.globalAlpha = d.opacity;
-    ctx.drawImage(d.image, d.x, d.y, d.displayWidth, d.displayHeight);
+    ctx.drawImage(d.image, d.x, floatY, d.displayWidth, d.displayHeight);
     ctx.restore();
   }
 }
@@ -533,8 +540,11 @@ export default function SkyCanvas({
 
       const img = new Image();
       img.onload = () => {
-        const maxW = 120;
-        const scale = Math.min(maxW / drawing.width, maxW / drawing.height);
+        const targetSize = 80 + Math.random() * 120; // 80〜200px でランダム
+        const scale = Math.min(
+          targetSize / drawing.width,
+          targetSize / drawing.height
+        );
         const displayWidth = drawing.width * scale;
         const displayHeight = drawing.height * scale;
         const w = window.innerWidth;
@@ -548,12 +558,15 @@ export default function SkyCanvas({
         driftingDrawingsRef.current.push({
           id: drawing.id,
           image: img,
-          x: -displayWidth,
-          y: Math.random() * h * 0.3 + h * 0.05,
+          x: -displayWidth, // 左端から流れてくる
+          y: Math.random() * h * 0.6 + h * 0.05, // 上5%〜65%の広い範囲
           displayWidth,
           displayHeight,
-          speed: Math.random() * 0.4 + 0.2,
+          speed: 0.15 + Math.random() * 0.85, // 0.15〜1.0 でランダム
           opacity: Math.random() * 0.3 + 0.4,
+          floatOffset: Math.random() * Math.PI * 2, // 各描画ごとに位相をずらす
+          floatAmp: 8 + Math.random() * 35, // 8〜8*35 の上下振れ幅
+          floatFreq: 0.0003 + Math.random() * 0.0004, // ゆっくり〜少し速めの周期
         });
       };
       img.src = drawing.dataURL;
@@ -651,7 +664,7 @@ export default function SkyCanvas({
 
       // お絵描きドリフト（雲と同じ層）
       if (driftingDrawingsRef.current.length > 0) {
-        drawDriftingDrawings(ctx, driftingDrawingsRef.current, cw);
+        drawDriftingDrawings(ctx, driftingDrawingsRef.current, cw, time);
       }
 
       if (

@@ -8,37 +8,90 @@ type Tool = "pen" | "eraser";
 const CANVAS_W = 320;
 const CANVAS_H = 240;
 
+// Tailwind のパージ対策で完全なクラス名を列挙する
+const FLY_ANIMATIONS = [
+  "animate-fly-to-sky-straight",
+  "animate-fly-to-sky-left",
+  "animate-fly-to-sky-right",
+] as const;
+
+function pickFlyAnimation() {
+  return FLY_ANIMATIONS[Math.floor(Math.random() * FLY_ANIMATIONS.length)];
+}
+
 export default function DrawingCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
+  const fadeRafRef = useRef<number | null>(null);
 
   const [tool, setTool] = useState<Tool>("pen");
   const [flyingImage, setFlyingImage] = useState<string | null>(null);
+  const [flyAnimation, setFlyAnimation] = useState<string>("");
   const { addDrawing } = useSkyDrawings();
 
-  const getPos = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return { x: 0, y: 0 };
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
-        y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
-      };
-    },
-    []
-  );
+  const getPos = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
+      y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
+    };
+  }, []);
+
+  // rAF で canvas をじわっとフェードアウトしてクリア
+  const startFadeOut = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    if (fadeRafRef.current) cancelAnimationFrame(fadeRafRef.current);
+
+    const fade = () => {
+      ctx.globalCompositeOperation = "destination-out";
+      // 1フレームごとに約5%ずつ消す → ~2sでほぼ透明（0.95^120 ≈ 0.002）
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+      ctx.globalCompositeOperation = "source-over";
+
+      // まだ残ってたら続ける
+      const pixels = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H).data;
+      const hasContent = pixels.some((_, i) => i % 4 === 3 && pixels[i] > 4);
+      if (hasContent) {
+        fadeRafRef.current = requestAnimationFrame(fade);
+      } else {
+        ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+        fadeRafRef.current = null;
+      }
+    };
+
+    fadeRafRef.current = requestAnimationFrame(fade);
+  }, []);
+
+  const stopFade = useCallback(() => {
+    if (fadeRafRef.current) {
+      cancelAnimationFrame(fadeRafRef.current);
+      fadeRafRef.current = null;
+    }
+  }, []);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      // フェード中に描き始めたら残像ごとクリアして白紙に
+      if (fadeRafRef.current) {
+        stopFade();
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+      }
       canvas.setPointerCapture(e.pointerId);
       isDrawing.current = true;
       lastPos.current = getPos(e);
     },
-    [getPos]
+    [getPos, stopFade]
   );
 
   const handlePointerMove = useCallback(
@@ -67,7 +120,6 @@ export default function DrawingCanvas() {
       ctx.lineJoin = "round";
       ctx.stroke();
 
-      // composite を戻す
       ctx.globalCompositeOperation = "source-over";
       lastPos.current = pos;
     },
@@ -80,16 +132,16 @@ export default function DrawingCanvas() {
   }, []);
 
   const handleClear = useCallback(() => {
+    stopFade();
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-  }, []);
+  }, [stopFade]);
 
   const handleFly = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // 何も描かれてなかったら無視
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const pixels = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H).data;
@@ -97,24 +149,27 @@ export default function DrawingCanvas() {
     if (!hasContent) return;
 
     const dataURL = canvas.toDataURL("image/png");
-
-    // 飛び立ちアニメ用にスナップショットをセット
-    setFlyingImage(dataURL);
-
-    // コンテキストに追加（すぐ空に現れる）
-    addDrawing({
+    const drawingData = {
       id: crypto.randomUUID(),
       dataURL,
       width: CANVAS_W,
       height: CANVAS_H,
-    });
+    };
 
-    // アニメ後にクリア
+    const anim = pickFlyAnimation();
+    setFlyAnimation(anim);
+    setFlyingImage(dataURL);
+
+    // canvas はじわっとフェードアウト
+    startFadeOut();
+
+    // アニメ終了後に空に追加 + オーバーレイ除去
     setTimeout(() => {
+      addDrawing(drawingData);
       setFlyingImage(null);
-      handleClear();
-    }, 800);
-  }, [addDrawing, handleClear]);
+      setFlyAnimation("");
+    }, 2500);
+  }, [addDrawing, startFadeOut]);
 
   return (
     <div className="flex flex-col gap-3 p-3">
@@ -161,7 +216,10 @@ export default function DrawingCanvas() {
           width={CANVAS_W}
           height={CANVAS_H}
           className="w-full rounded border-2 border-illustration-stroke/30 bg-white cursor-crosshair"
-          style={{ touchAction: "none", aspectRatio: `${CANVAS_W}/${CANVAS_H}` }}
+          style={{
+            touchAction: "none",
+            aspectRatio: `${CANVAS_W}/${CANVAS_H}`,
+          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -170,10 +228,14 @@ export default function DrawingCanvas() {
 
         {/* 飛び立ちアニメ */}
         {flyingImage && (
+          // flyingImage は canvas.toDataURL() で生成された data:image/png;base64,... な URL で、Next.js の <Image> は data: スキームを受け付けない（最適化のために静的パス or 設定済みリモートドメインが必要）
+          // 無理やり使おうとするとランタイムエラーになる。
+          // SkyCanvas 側の <img> (OgCard 含む) も Satori 内部 or Canvas API 経由なのでブラウザ標準の img で正しい。
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={flyingImage}
             alt=""
-            className="absolute inset-0 w-full h-full rounded pointer-events-none animate-fly-to-sky"
+            className={`absolute inset-0 w-full h-full rounded pointer-events-none ${flyAnimation}`}
           />
         )}
       </div>
