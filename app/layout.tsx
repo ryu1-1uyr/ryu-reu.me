@@ -37,6 +37,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
+    site: "@reu_00_00",
+    creator: "@reu_00_00",
     title: siteName,
     description: siteDescription,
     images: [IconImage.src],

@@ -29,17 +29,34 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .slice(0, 120);
 
   return {
+    metadataBase: new URL("https://www.ryu-reu.me"),
     title: post.title,
     description,
+    keywords: [
+      "りゆうの実験場",
+      "reu-ryu",
+      "ryu1__1uyR",
+      "ReU_00_00",
+      "ブログ",
+      "技術記事",
+      "お絵描き",
+      "日記",
+    ],
     openGraph: {
       type: "article",
+      siteName: "りゆうの実験場",
       title: post.title,
       description,
       url: `/posts/${post.slug}`,
-      images: [{ url: IconImage.src, width: 400, height: 400, alt: post.title }],
+      locale: "ja_JP",
+      images: [
+        { url: IconImage.src, width: 400, height: 400, alt: post.title },
+      ],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
+      site: "@reu_00_00",
+      creator: "@reu_00_00",
       title: post.title,
       description,
       images: [IconImage.src],
