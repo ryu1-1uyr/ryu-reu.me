@@ -9,6 +9,7 @@ export type PostItem = {
   createdAt: Date;
   updatedAt: Date;
   content: string;
+  tags?: string[];
 };
 
 type Props = {
@@ -39,6 +40,7 @@ export default function PostListView({ posts, showMoreLink = false }: Props) {
           authorEmail={post.authorEmail}
           createdAt={post.createdAt}
           content={post.content}
+          tags={post.tags}
         />
       ))}
       {showMoreLink && (

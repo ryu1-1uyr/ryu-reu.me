@@ -4,9 +4,10 @@ type Props = {
   currentPage: number;
   totalPages: number;
   basePath: string;
+  extraParams?: Record<string, string>;
 };
 
-export default function Pagination({ currentPage, totalPages, basePath }: Props) {
+export default function Pagination({ currentPage, totalPages, basePath, extraParams }: Props) {
   if (totalPages <= 1) return null;
 
   const pages: (number | "...")[] = [];
@@ -18,8 +19,12 @@ export default function Pagination({ currentPage, totalPages, basePath }: Props)
     }
   }
 
-  const href = (page: number) =>
-    page === 1 ? basePath : `${basePath}?page=${page}`;
+  const href = (page: number) => {
+    const params = new URLSearchParams(extraParams);
+    if (page > 1) params.set("page", String(page));
+    const qs = params.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
 
   return (
     <nav className="flex items-center justify-center gap-2 pt-6">

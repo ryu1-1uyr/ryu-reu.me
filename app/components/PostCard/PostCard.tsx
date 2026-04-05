@@ -7,6 +7,7 @@ type Props = {
   authorEmail: string;
   createdAt: Date;
   content: string;
+  tags?: string[];
 };
 
 function stripMarkdown(text: string): string {
@@ -27,6 +28,7 @@ export default function PostCard({
   authorEmail,
   createdAt,
   content,
+  tags,
 }: Props) {
   const preview = stripMarkdown(content);
 
@@ -37,6 +39,24 @@ export default function PostCard({
           {title}
         </h3>
       </Link>
+      {tags && tags.length > 0 && (
+        <div className="flex flex-nowrap gap-1 mt-1 overflow-hidden">
+          {tags.slice(0, 3).map((tag) => (
+            <Link
+              key={tag}
+              href={`/blog?tag=${encodeURIComponent(tag)}`}
+              className="text-xs px-2 py-0.5 rounded-full bg-elements-button/20 text-elements-button hover:bg-elements-button/30 transition-colors shrink-0"
+            >
+              {tag}
+            </Link>
+          ))}
+          {tags.length > 3 && (
+            <span className="text-xs px-2 py-0.5 text-elements-button/60 shrink-0">
+              +{tags.length - 3}
+            </span>
+          )}
+        </div>
+      )}
       <p className="text-xs text-illustration-highlight text-right mt-1">
         by reu · {new Date(createdAt).toLocaleDateString("ja-JP")}
       </p>

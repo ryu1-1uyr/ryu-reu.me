@@ -18,7 +18,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { title, content, published } = body;
+  const { title, content, published, tags } = body as {
+    title?: string;
+    content?: string;
+    published?: boolean;
+    tags?: string[];
+  };
 
   if (!title || !content) {
     return NextResponse.json(
@@ -47,6 +52,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // タグ名を正規化（全角→半角、前後空白除去、空文字除外）
+  const normalizedTags = tags
+    ? [...new Set(tags.map((t) => t.trim().normalize("NFKC")).filter(Boolean))]
+    : [];
+
   const post = await prisma.post.create({
     data: {
       title,
@@ -54,6 +64,11 @@ export async function POST(request: NextRequest) {
       content,
       authorId: prismaUser.id,
       published: published !== false,
+      tags: {
+        create: normalizedTags.map((name) => ({
+          tag: { connectOrCreate: { where: { name }, create: { name } } },
+        })),
+      },
     },
   });
 

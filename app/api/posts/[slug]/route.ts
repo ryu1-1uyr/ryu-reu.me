@@ -10,7 +10,7 @@ export async function GET(
 
   const post = await prisma.post.findUnique({
     where: { slug },
-    include: { author: true },
+    include: { author: true, tags: { include: { tag: true } } },
   });
 
   const isDev = process.env.NODE_ENV === "development";
@@ -26,5 +26,6 @@ export async function GET(
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     content: post.content,
+    tags: post.tags.map((pt) => pt.tag.name),
   });
 }
