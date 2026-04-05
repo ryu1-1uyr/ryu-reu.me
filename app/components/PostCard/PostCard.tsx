@@ -46,7 +46,6 @@ export default function PostCard({
               key={tag}
               href={`/blog?tag=${encodeURIComponent(tag)}`}
               className="text-xs px-2 py-0.5 rounded-full bg-elements-button/20 text-elements-button hover:bg-elements-button/30 transition-colors"
-              onClick={(e) => e.stopPropagation()}
             >
               {tag}
             </Link>
