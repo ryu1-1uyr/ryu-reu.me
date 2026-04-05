@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const revalidate = 3600; // 1時間キャッシュ（ISR）
+
 const POSTS_PER_PAGE = 10;
 const isDev = process.env.NODE_ENV === "development";
 
