@@ -99,7 +99,9 @@ export default async function BlogPage({
 
           {items.length === 0 ? (
             <p className="text-center text-elements-paragraph py-12">
-              記事がまだありません
+              {tag
+                ? `「${tag}」の記事はまだないみたい`
+                : "記事がまだありません"}
             </p>
           ) : (
             <div className="space-y-4">
