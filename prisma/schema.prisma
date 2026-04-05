@@ -33,6 +33,9 @@ model Post {
   author    User     @relation(fields: [authorId], references: [id])
   images    Image[]
   tags      PostTag[]
+
+  @@index([published, createdAt])
+  @@index([authorId])
 }
 
 model Tag {
@@ -49,6 +52,7 @@ model PostTag {
 
   @@id([postId, tagId])
   @@index([tagId])
+  @@index([postId])
 }
 
 model Image {
