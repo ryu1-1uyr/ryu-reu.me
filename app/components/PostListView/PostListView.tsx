@@ -40,6 +40,7 @@ export default function PostListView({ posts, showMoreLink = false }: Props) {
           authorEmail={post.authorEmail}
           createdAt={post.createdAt}
           content={post.content}
+          tags={post.tags}
         />
       ))}
       {showMoreLink && (

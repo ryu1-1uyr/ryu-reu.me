@@ -8,7 +8,7 @@ export default async function PostList() {
   const posts = await prisma.post.findMany({
     where: isDev ? undefined : { published: true },
     orderBy: { createdAt: "desc" },
-    include: { author: true },
+    include: { author: true, tags: { include: { tag: true } } },
     take: 3,
   });
 
@@ -20,6 +20,7 @@ export default async function PostList() {
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     content: post.content,
+    tags: post.tags.map((pt) => pt.tag.name),
   }));
 
   return (
