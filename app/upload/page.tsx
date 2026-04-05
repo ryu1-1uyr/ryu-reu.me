@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import TagInput from "@/app/components/TagInput";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -24,6 +25,7 @@ function loadDraft() {
       title: string;
       content: string;
       published: boolean;
+      tags?: string[];
       savedAt: string;
     };
   } catch {
@@ -36,6 +38,7 @@ export default function UploadPage() {
   const [content, setContent] = useState("");
   const [uploading, setUploading] = useState(false);
   const [published, setPublished] = useState(true);
+  const [tags, setTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
 
@@ -46,6 +49,7 @@ export default function UploadPage() {
       setTitle(draft.title);
       setContent(draft.content);
       setPublished(draft.published);
+      setTags(draft.tags ?? []);
       setDraftRestoredAt(draft.savedAt);
     }
   }, []);
@@ -68,12 +72,13 @@ export default function UploadPage() {
           title,
           content,
           published,
+          tags,
           savedAt: new Date().toISOString(),
         })
       );
     }, 1000);
     return () => clearTimeout(timer);
-  }, [title, content, published]);
+  }, [title, content, published, tags]);
 
   const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
 
@@ -198,7 +203,7 @@ export default function UploadPage() {
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, published }),
+        body: JSON.stringify({ title, content, published, tags }),
       });
 
       if (handleUnauthorized(res)) return;
@@ -240,6 +245,7 @@ export default function UploadPage() {
                 setTitle("");
                 setContent("");
                 setPublished(true);
+                setTags([]);
                 setMessage(null);
                 window.location.reload();
               }}
@@ -262,6 +268,14 @@ export default function UploadPage() {
             placeholder="記事のタイトル"
             className="w-full px-3 py-2 rounded-lg bg-elements-headline text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-elements-button"
           />
+        </div>
+
+        {/* タグ */}
+        <div className="mb-6">
+          <label className="block text-sm text-elements-paragraph mb-1">
+            タグ
+          </label>
+          <TagInput value={tags} onChange={setTags} />
         </div>
 
         {/* エディタ + プレビュー */}
