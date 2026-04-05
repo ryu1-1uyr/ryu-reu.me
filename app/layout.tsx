@@ -4,6 +4,7 @@ import IconImage from "@/public/me.png";
 import Footer from "@/app/components/Footer";
 import { PostsCacheProvider } from "@/app/contexts/PostsCache";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 import { WeatherOverrideProvider } from "@/app/contexts/WeatherOverride";
@@ -53,6 +54,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <SpeedInsights />
+      <Analytics />
       <body
         className={`${yuseiMagic.className} flex flex-col min-h-screen bg-elements-background`}
       >
