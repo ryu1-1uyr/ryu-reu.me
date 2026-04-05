@@ -9,6 +9,7 @@ export type PostItem = {
   createdAt: Date;
   updatedAt: Date;
   content: string;
+  tags?: string[];
 };
 
 type Props = {
