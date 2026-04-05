@@ -10,6 +10,7 @@ import type { PostItem } from "@/app/components/PostListView/PostListView";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
+import Link from "next/link";
 
 export default function PostPage() {
   const { slug: rawSlug } = useParams<{ slug: string }>();
@@ -60,6 +61,19 @@ export default function PostPage() {
           <h1 className="text-3xl font-bold mb-4 text-elements-headline">
             {post.title}
           </h1>
+          {post.tags && post.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {post.tags.map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/blog?tag=${encodeURIComponent(tag)}`}
+                  className="text-sm px-3 py-1 rounded-full bg-elements-button/20 text-elements-button hover:bg-elements-button/30 transition-colors"
+                >
+                  {tag}
+                </Link>
+              ))}
+            </div>
+          )}
           <div className="text-sm text-elements-paragraph mb-8 space-y-1">
             <p>
               作成日: {new Date(post.createdAt).toLocaleDateString("ja-JP")}
