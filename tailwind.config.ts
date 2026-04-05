@@ -53,6 +53,12 @@ const config: Config = {
             opacity: "0",
           },
         },
+        // ローディングバー: 左から右に繰り返し流れる
+        "loading-bar": {
+          "0%": { transform: "translateX(-100%)", width: "40%" },
+          "50%": { transform: "translateX(60%)", width: "60%" },
+          "100%": { transform: "translateX(250%)", width: "40%" },
+        },
         // C: 右にゆっくりふわりと流れる
         "fly-to-sky-right": {
           "0%": {
@@ -82,6 +88,8 @@ const config: Config = {
           "fly-to-sky-left 2.4s cubic-bezier(0.37,0,0.63,1) forwards",
         "fly-to-sky-right":
           "fly-to-sky-right 2.2s cubic-bezier(0.37,0,0.63,1) forwards",
+        "loading-bar":
+          "loading-bar 1.5s ease-in-out infinite",
       },
       colors: {
         elements: {

@@ -15,22 +15,25 @@ export type PostItem = {
 type Props = {
   posts: PostItem[];
   showMoreLink?: boolean;
+  showHeading?: boolean;
 };
 
-export default function PostListView({ posts, showMoreLink = false }: Props) {
+export default function PostListView({ posts, showMoreLink = false, showHeading = true }: Props) {
   if (posts.length === 0) {
     return (
-      <div className="p-6 text-center text-illustration-secondary">
+      <div className={`${showHeading ? "p-6" : ""} text-center text-illustration-secondary`}>
         投稿がまだありません
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <h2 className="text-sm font-semibold text-elements-headline tracking-widest border-l-2 border-elements-button pl-2 mb-4">
-        最近の戯言
-      </h2>
+    <div className={`${showHeading ? "p-6" : ""} space-y-4`}>
+      {showHeading && (
+        <h2 className="text-sm font-semibold text-elements-headline tracking-widest border-l-2 border-elements-button pl-2 mb-4">
+          最近の戯言
+        </h2>
+      )}
       {posts.map((post) => (
         <PostCard
           key={post.id}
