@@ -26,7 +26,7 @@ export default async function PostList() {
   return (
     <>
       <PostsHydrator posts={items} />
-      <PostListView posts={items} showMoreLink />
+      <PostListView posts={items} showMoreLink showHeading={false} />
     </>
   );
 }
