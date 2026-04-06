@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useWindowManager, type WindowId } from "@/app/contexts/WindowManager";
 import StartMenu from "./StartMenu";
 import { useIsClient } from "@/app/hooks/useIsClient";
+import { useClickOutside } from "@/app/hooks/useClickOutside";
 
 type TaskbarItem = {
   id: WindowId;
@@ -28,16 +29,7 @@ export default function Taskbar() {
       : "🚀";
   });
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("pointerdown", handleClick);
-    return () => document.removeEventListener("pointerdown", handleClick);
-  }, [menuOpen]);
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-50 h-10 bg-elements-background/90 backdrop-blur-md border-t-2 border-illustration-stroke flex items-center px-2 gap-1">

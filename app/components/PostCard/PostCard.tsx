@@ -1,4 +1,5 @@
 import Link from "next/link";
+import TagChip from "@/app/components/TagChip";
 
 type Props = {
   id: string;
@@ -42,13 +43,7 @@ export default function PostCard({
       {tags && tags.length > 0 && (
         <div className="flex flex-nowrap gap-1 mt-1 overflow-hidden">
           {tags.slice(0, 3).map((tag) => (
-            <Link
-              key={tag}
-              href={`/blog?tag=${encodeURIComponent(tag)}`}
-              className="text-xs px-2 py-0.5 rounded-full bg-elements-button/20 text-elements-button hover:bg-elements-button/30 transition-colors shrink-0"
-            >
-              {tag}
-            </Link>
+            <TagChip key={tag} tag={tag} size="sm" className="shrink-0" />
           ))}
           {tags.length > 3 && (
             <span className="text-xs px-2 py-0.5 text-elements-button/60 shrink-0">

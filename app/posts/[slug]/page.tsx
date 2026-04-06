@@ -10,7 +10,7 @@ import type { PostItem } from "@/app/components/PostListView/PostListView";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
-import Link from "next/link";
+import TagChip from "@/app/components/TagChip";
 
 export default function PostPage() {
   const { slug: rawSlug } = useParams<{ slug: string }>();
@@ -64,13 +64,7 @@ export default function PostPage() {
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
               {post.tags.map((tag) => (
-                <Link
-                  key={tag}
-                  href={`/blog?tag=${encodeURIComponent(tag)}`}
-                  className="text-sm px-3 py-1 rounded-full bg-elements-button/20 text-elements-button hover:bg-elements-button/30 transition-colors"
-                >
-                  {tag}
-                </Link>
+                <TagChip key={tag} tag={tag} size="md" />
               ))}
             </div>
           )}
