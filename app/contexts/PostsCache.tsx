@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
-import type { PostItem } from "@/app/components/PostListView/PostListView";
+import type { PostItem } from "@/app/components/PostListView";
 
 type PostsCacheContextType = {
   posts: PostItem[];

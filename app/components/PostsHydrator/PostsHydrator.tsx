@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePostsCache } from "@/app/contexts/PostsCache";
-import type { PostItem } from "@/app/components/PostListView/PostListView";
+import type { PostItem } from "@/app/components/PostListView";
 
 type Props = {
   posts: PostItem[];

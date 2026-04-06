@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { usePageTransition } from "@/app/components/PageTransition/PageTransitionContext";
+import { usePageTransition } from "@/app/components/PageTransition";
 
 export default function BackButton() {
   const router = useRouter();

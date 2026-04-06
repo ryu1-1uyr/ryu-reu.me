@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import BackButton from "./BackButton";
-import { PageTransitionContext } from "@/app/components/PageTransition/PageTransitionContext";
+import { PageTransitionContext } from "@/app/components/PageTransition";
 
 const meta: Meta<typeof BackButton> = {
   title: "Components/BackButton",
