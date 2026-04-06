@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useClickOutside } from "@/app/hooks/useClickOutside";
 
 type ShareButtonsProps = {
   title: string;
@@ -17,17 +18,7 @@ export default function ShareButtons({ title, slug }: ShareButtonsProps) {
       ? `${window.location.origin}/posts/${encodeURIComponent(slug)}`
       : "";
 
-  // メニュー外クリックで閉じる
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
+  useClickOutside(menuRef, () => setOpen(false), open);
 
   const handleCopy = useCallback(async () => {
     try {
