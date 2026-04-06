@@ -2,41 +2,40 @@ import Image from "next/image";
 import IconImage from "@/public/me.png";
 import { FaXTwitter, FaYoutube, FaGithub, FaDiscord } from "react-icons/fa6";
 import { SiPixiv, SiSteam } from "react-icons/si";
-import EmojiCardList from "@/app/components/EmojiCardList";
-import IconCardList from "@/app/components/IconCardList";
+import CardList from "@/app/components/CardList";
 
 const INTERESTS = [
-  { emoji: "🎮", label: "ゲーム" },
-  { emoji: "💻", label: "開発" },
-  { emoji: "🎧", label: "音楽" },
-  { emoji: "🎹", label: "作曲" },
-  { emoji: "🎨", label: "お絵描き" },
+  { children: "🎮", label: "ゲーム" },
+  { children: "💻", label: "開発" },
+  { children: "🎧", label: "音楽" },
+  { children: "🎹", label: "作曲" },
+  { children: "🎨", label: "お絵描き" },
 ];
 
 const LINKS = [
-  { icon: <FaXTwitter />, label: "X", url: "https://x.com/reu_00_00" },
+  { children: <FaXTwitter />, label: "X", url: "https://x.com/reu_00_00" },
   {
-    icon: <FaYoutube />,
+    children: <FaYoutube />,
     label: "YouTube",
     url: "https://www.youtube.com/@ryuryuuyr",
   },
   {
-    icon: <FaDiscord />,
+    children: <FaDiscord />,
     label: "Discord",
     url: "https://discord.com/users/333289660958638082",
   },
   {
-    icon: <SiSteam />,
+    children: <SiSteam />,
     label: "Steam",
     url: "https://steamcommunity.com/id/reu_o_o",
   },
   {
-    icon: <FaGithub />,
+    children: <FaGithub />,
     label: "GitHub",
     url: "https://github.com/ryu1-1uyr",
   },
   {
-    icon: <SiPixiv />,
+    children: <SiPixiv />,
     label: "pixiv",
     url: "https://www.pixiv.net/users/27207159",
   },
@@ -67,13 +66,13 @@ export default function AboutMe() {
           <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
             好きなもの
           </h2>
-          <EmojiCardList items={INTERESTS} />
+          <CardList items={INTERESTS} />
         </div>
         <div className="mt-4">
           <h2 className="text-sm font-semibold text-elements-paragraph tracking-widest border-l-2 border-elements-button pl-2">
             Link
           </h2>
-          <IconCardList items={LINKS} />
+          <CardList items={LINKS} />
         </div>
       </div>
     </div>
