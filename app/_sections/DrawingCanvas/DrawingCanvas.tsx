@@ -63,18 +63,26 @@ export default function DrawingCanvas() {
 
     if (fadeRafRef.current) cancelAnimationFrame(fadeRafRef.current);
 
-    // ~2s フェード（60fps × 2s = 120 フレーム）
-    let frame = 0;
-    const totalFrames = 120;
+    const fadeDurationMs = 2000;
+    let fadeStartTime: number | null = null;
+    let prevTime: number | null = null;
 
-    const fade = () => {
-      frame++;
+    const fade = (now: number) => {
+      if (fadeStartTime === null) fadeStartTime = now;
+      if (prevTime === null) prevTime = now;
+
+      const deltaMs = Math.min(now - prevTime, 100);
+      const dt = deltaMs / (1000 / 60); // 60fps 基準の比率
+      prevTime = now;
+
       ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      // 60fps で 0.05 ずつ消す挙動を dt で補正
+      const alpha = 1 - Math.pow(1 - 0.05, dt);
+      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
       ctx.globalCompositeOperation = "source-over";
 
-      if (frame < totalFrames) {
+      if (now - fadeStartTime < fadeDurationMs) {
         fadeRafRef.current = requestAnimationFrame(fade);
       } else {
         // 確実に完全クリア

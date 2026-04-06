@@ -81,8 +81,9 @@ type Cloud = {
 type Bolt = { x: number; y: number }[];
 type LightningState = {
   active: boolean;
-  frameCount: number; // 残りフレーム（0 で消灯）
-  nextStrikeIn: number; // 次の雷までのフレーム数
+  remainingMs: number; // 残り表示時間 (ms)
+  durationMs: number; // 光る合計時間 (ms)（ボルト不透明度計算用）
+  nextStrikeMs: number; // 次の雷までの時間 (ms)
   bolts: Bolt[];
   flashOpacity: number;
 };
@@ -203,8 +204,9 @@ function generateLightningBolts(w: number, h: number): Bolt[] {
 function createLightningState(): LightningState {
   return {
     active: false,
-    frameCount: 0,
-    nextStrikeIn: 120 + Math.floor(Math.random() * 300), // 2〜7秒 (60fps換算)
+    remainingMs: 0,
+    durationMs: 0,
+    nextStrikeMs: 2000 + Math.random() * 5000, // 2〜7秒
     bolts: [],
     flashOpacity: 0,
   };
@@ -341,9 +343,14 @@ function drawMoon(
   ctx.restore();
 }
 
-function drawClouds(ctx: CanvasRenderingContext2D, clouds: Cloud[], w: number) {
+function drawClouds(
+  ctx: CanvasRenderingContext2D,
+  clouds: Cloud[],
+  w: number,
+  dt: number
+) {
   for (const cloud of clouds) {
-    cloud.x += cloud.speed;
+    cloud.x += cloud.speed * dt;
     if (cloud.x > w + cloud.width) cloud.x = -cloud.width;
 
     ctx.save();
@@ -372,7 +379,8 @@ function drawRain(
   drops: Raindrop[],
   h: number,
   w: number,
-  isThunderstorm = false
+  isThunderstorm = false,
+  dt = 1
 ) {
   const speedMul = isThunderstorm ? 1.3 : 1;
   const windJitter = isThunderstorm ? 0.4 : 0.2;
@@ -381,8 +389,8 @@ function drawRain(
     : "rgba(193, 200, 231, 0.4)";
   ctx.lineWidth = isThunderstorm ? 1.5 : 1;
   for (const drop of drops) {
-    drop.y += drop.speed * speedMul;
-    drop.x -= drop.speed * (0.1 + Math.random() * windJitter);
+    drop.y += drop.speed * speedMul * dt;
+    drop.x -= drop.speed * (0.1 + Math.random() * windJitter) * dt;
     if (drop.y > h) {
       drop.y = -drop.length;
       drop.x = Math.random() * w;
@@ -414,6 +422,8 @@ function drawLightning(
     ctx.shadowBlur = 20;
     ctx.lineCap = "round";
 
+    const fadeRatio =
+      state.durationMs > 0 ? state.remainingMs / state.durationMs : 0;
     for (let bIdx = 0; bIdx < state.bolts.length; bIdx++) {
       const bolt = state.bolts[bIdx];
       if (bolt.length < 2) continue;
@@ -421,8 +431,8 @@ function drawLightning(
       ctx.lineWidth = bIdx === 0 ? 2 : 1;
       ctx.strokeStyle =
         bIdx === 0
-          ? `rgba(255, 255, 255, ${0.9 * (state.frameCount / 4)})`
-          : `rgba(200, 210, 255, ${0.6 * (state.frameCount / 4)})`;
+          ? `rgba(255, 255, 255, ${0.9 * fadeRatio})`
+          : `rgba(200, 210, 255, ${0.6 * fadeRatio})`;
 
       ctx.beginPath();
       ctx.moveTo(bolt[0].x, bolt[0].y);
@@ -435,20 +445,28 @@ function drawLightning(
   }
 }
 
-function tickLightning(state: LightningState, w: number, h: number) {
+function tickLightning(
+  state: LightningState,
+  w: number,
+  h: number,
+  deltaMs: number
+) {
   if (state.active) {
-    state.frameCount--;
-    state.flashOpacity *= 0.7; // 急速フェードアウト
-    if (state.frameCount <= 0) {
+    state.remainingMs -= deltaMs;
+    // 60fps 換算で 0.7^1 のペースで減衰
+    state.flashOpacity *= Math.pow(0.7, deltaMs / (1000 / 60));
+    if (state.remainingMs <= 0) {
       state.active = false;
       state.flashOpacity = 0;
-      state.nextStrikeIn = 120 + Math.floor(Math.random() * 300);
+      state.nextStrikeMs = 2000 + Math.random() * 5000;
     }
   } else {
-    state.nextStrikeIn--;
-    if (state.nextStrikeIn <= 0) {
+    state.nextStrikeMs -= deltaMs;
+    if (state.nextStrikeMs <= 0) {
       state.active = true;
-      state.frameCount = 4; // 4フレーム光る
+      const duration = 67; // ~4フレーム分 (ms)
+      state.remainingMs = duration;
+      state.durationMs = duration;
       state.flashOpacity = 0.12 + Math.random() * 0.08;
       state.bolts = generateLightningBolts(w, h);
     }
@@ -460,12 +478,13 @@ function drawSnow(
   flakes: Snowflake[],
   h: number,
   w: number,
-  time: number
+  time: number,
+  dt = 1
 ) {
   ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
   for (const flake of flakes) {
-    flake.y += flake.speed;
-    flake.x += Math.sin(time * 0.001 + flake.driftOffset) * flake.drift;
+    flake.y += flake.speed * dt;
+    flake.x += Math.sin(time * 0.001 + flake.driftOffset) * flake.drift * dt;
     if (flake.y > h) {
       flake.y = -flake.radius;
       flake.x = Math.random() * w;
@@ -496,10 +515,11 @@ function drawDriftingDrawings(
   ctx: CanvasRenderingContext2D,
   drawings: DriftingDrawing[],
   w: number,
-  time: number
+  time: number,
+  dt = 1
 ) {
   for (const d of drawings) {
-    d.x += d.speed;
+    d.x += d.speed * dt;
     if (d.x > w + d.displayWidth) d.x = -d.displayWidth;
 
     const floatY =
@@ -613,6 +633,7 @@ export default function SkyCanvas({
     let animId: number;
     let running = true;
     const startTime = performance.now();
+    let prevTime = startTime;
 
     // reducedMotion: グラデーションだけ 1 回描いて終了、ループしない
     if (reducedMotion) {
@@ -631,16 +652,41 @@ export default function SkyCanvas({
       } else {
         if (!running) {
           running = true;
+          prevTime = performance.now(); // タブ復帰時の巨大 dt を防止
           animId = requestAnimationFrame(render);
         }
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
+    // 📝 こんな感じの変更をすれば意図的にFPSを落とすことができそう
+    // const TARGET_FPS = 30;
+    // const FRAME_INTERVAL = 1000 / TARGET_FPS;
+    // let lastRenderTime = startTime;
+
+    // const render = () => {
+    //   if (!running) return;
+    //   const now = performance.now();
+
+    //   // 目標フレーム間隔に達してなければスキップ
+    //   if (now - lastRenderTime < FRAME_INTERVAL) {
+    //     animId = requestAnimationFrame(render);
+    //     return;
+    //   }
+    //   lastRenderTime = now;
+
+    //   // 以下いつもの描画処理...
+    // };
+
     const render = () => {
       if (!running) return;
 
-      const time = performance.now() - startTime;
+      const now = performance.now();
+      const deltaMs = Math.min(now - prevTime, 100); // タブ復帰時のジャンプ防止
+      const dt = deltaMs / (1000 / 60); // 60fps を基準とした比率
+      prevTime = now;
+
+      const time = now - startTime;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const cw = w();
       const ch = h();
@@ -659,12 +705,12 @@ export default function SkyCanvas({
         weatherCondition === "thunderstorm" ||
         weatherCondition === "snow"
       ) {
-        drawClouds(ctx, cloudsRef.current, cw);
+        drawClouds(ctx, cloudsRef.current, cw, dt);
       }
 
       // お絵描きドリフト（雲と同じ層）
       if (driftingDrawingsRef.current.length > 0) {
-        drawDriftingDrawings(ctx, driftingDrawingsRef.current, cw, time);
+        drawDriftingDrawings(ctx, driftingDrawingsRef.current, cw, time, dt);
       }
 
       if (
@@ -677,16 +723,17 @@ export default function SkyCanvas({
           rainRef.current,
           ch,
           cw,
-          weatherCondition === "thunderstorm"
+          weatherCondition === "thunderstorm",
+          dt
         );
       }
 
       if (weatherCondition === "snow") {
-        drawSnow(ctx, snowRef.current, ch, cw, time);
+        drawSnow(ctx, snowRef.current, ch, cw, time, dt);
       }
 
       if (weatherCondition === "thunderstorm") {
-        tickLightning(lightningRef.current, cw, ch);
+        tickLightning(lightningRef.current, cw, ch, deltaMs);
         drawLightning(ctx, cw, ch, lightningRef.current);
       }
 
