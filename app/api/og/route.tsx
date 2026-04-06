@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { OgCard } from "@/app/components/OgCard/OgCard";
+import { OgCard } from "@/app/components/OgCard";
 
 export const runtime = "nodejs";
 

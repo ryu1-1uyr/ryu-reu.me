@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { usePostsCache } from "@/app/contexts/PostsCache";
-import type { PostItem } from "@/app/components/PostListView/PostListView";
+import type { PostItem } from "@/app/components/PostListView";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
