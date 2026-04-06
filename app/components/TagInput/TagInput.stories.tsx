@@ -26,16 +26,20 @@ const meta: Meta<typeof TagInput> = {
 export default meta;
 type Story = StoryObj<typeof TagInput>;
 
+function EmptyExample() {
+  const [tags, setTags] = useState<string[]>([]);
+  return <TagInput value={tags} onChange={setTags} />;
+}
+
+function WithTagsExample() {
+  const [tags, setTags] = useState(["技術", "お絵描き"]);
+  return <TagInput value={tags} onChange={setTags} />;
+}
+
 export const Empty: Story = {
-  render: () => {
-    const [tags, setTags] = useState<string[]>([]);
-    return <TagInput value={tags} onChange={setTags} />;
-  },
+  render: () => <EmptyExample />,
 };
 
 export const WithTags: Story = {
-  render: () => {
-    const [tags, setTags] = useState(["技術", "お絵描き"]);
-    return <TagInput value={tags} onChange={setTags} />;
-  },
+  render: () => <WithTagsExample />,
 };
