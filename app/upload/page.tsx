@@ -61,9 +61,12 @@ export default function UploadPage() {
   const [failedUploads, setFailedUploads] = useState<FailedUpload[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const scrollSourceRef = useRef<"editor" | "preview" | null>(null);
   const router = useRouter();
 
   const handleEditorScroll = useCallback(() => {
+    if (scrollSourceRef.current === "preview") return;
+    scrollSourceRef.current = "editor";
     const ta = textareaRef.current;
     const pv = previewRef.current;
     if (!ta || !pv) return;
@@ -71,6 +74,20 @@ export default function UploadPage() {
     if (scrollable <= 0) return;
     const ratio = ta.scrollTop / scrollable;
     pv.scrollTop = ratio * (pv.scrollHeight - pv.clientHeight);
+    requestAnimationFrame(() => { scrollSourceRef.current = null; });
+  }, []);
+
+  const handlePreviewScroll = useCallback(() => {
+    if (scrollSourceRef.current === "editor") return;
+    scrollSourceRef.current = "preview";
+    const ta = textareaRef.current;
+    const pv = previewRef.current;
+    if (!ta || !pv) return;
+    const scrollable = pv.scrollHeight - pv.clientHeight;
+    if (scrollable <= 0) return;
+    const ratio = pv.scrollTop / scrollable;
+    ta.scrollTop = ratio * (ta.scrollHeight - ta.clientHeight);
+    requestAnimationFrame(() => { scrollSourceRef.current = null; });
   }, []);
 
   // 自動保存（1秒デバウンス）
@@ -323,7 +340,7 @@ export default function UploadPage() {
             <label className="block text-sm text-elements-paragraph mb-1">
               プレビュー
             </label>
-            <div ref={previewRef} className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto">
+            <div ref={previewRef} onScroll={handlePreviewScroll} className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto">
               {content ? (
                 <article className="prose prose-neutral max-w-none">
                   <ReactMarkdown
