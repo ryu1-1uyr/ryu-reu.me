@@ -60,7 +60,18 @@ export default function UploadPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [failedUploads, setFailedUploads] = useState<FailedUpload[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  const handleEditorScroll = useCallback(() => {
+    const ta = textareaRef.current;
+    const pv = previewRef.current;
+    if (!ta || !pv) return;
+    const scrollable = ta.scrollHeight - ta.clientHeight;
+    if (scrollable <= 0) return;
+    const ratio = ta.scrollTop / scrollable;
+    pv.scrollTop = ratio * (pv.scrollHeight - pv.clientHeight);
+  }, []);
 
   // 自動保存（1秒デバウンス）
   useEffect(() => {
@@ -294,6 +305,7 @@ export default function UploadPage() {
               ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              onScroll={handleEditorScroll}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -311,7 +323,7 @@ export default function UploadPage() {
             <label className="block text-sm text-elements-paragraph mb-1">
               プレビュー
             </label>
-            <div className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto">
+            <div ref={previewRef} className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto">
               {content ? (
                 <article className="prose prose-neutral max-w-none">
                   <ReactMarkdown
