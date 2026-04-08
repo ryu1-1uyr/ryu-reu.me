@@ -68,6 +68,11 @@ type Snowflake = {
 };
 // 雲を構成する楕円パーツ
 type CloudBlob = { dx: number; dy: number; rx: number; ry: number };
+type CloudCache = {
+  canvas: HTMLCanvasElement;
+  ox: number; // blobs の左端オフセット（描画時に cloud.x + ox で配置）
+  oy: number;
+};
 type Cloud = {
   x: number;
   y: number;
@@ -75,6 +80,7 @@ type Cloud = {
   speed: number;
   opacity: number;
   blobs: CloudBlob[];
+  cache?: CloudCache;
 };
 
 // 稲妻の頂点リスト（メインボルト + サブボルト）
@@ -213,35 +219,50 @@ function createLightningState(): LightningState {
 }
 
 // --- 描画関数 ---
-function drawSkyGradient(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
+
+// グラデーションの色を事前計算する（phase/progress/weather が同じなら結果も同じ）
+function computeGradientColors(
   phase: SkyPhase,
   progress: number,
   weather: WeatherCondition
-) {
+): [string, string, string] {
   const phaseIdx = PHASE_ORDER.indexOf(phase);
   const prevPhase = PHASE_ORDER[(phaseIdx - 1 + 4) % 4];
   const currentColors = SKY_COLORS[phase];
   const prevColors = SKY_COLORS[prevPhase];
 
-  // 秘伝のどんより
   const tintConfig = WEATHER_TINT[weather];
-
-  // フェーズの最初の20%は前フェーズからブレンド
   const blendT = progress < 0.2 ? progress / 0.2 : 1;
 
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  const colors: string[] = [];
   for (let i = 0; i < 3; i++) {
     let color = lerpColor(prevColors[i], currentColors[i], blendT);
     if (phase !== "night" && phase !== "sunset" && tintConfig) {
       color = lerpColor(color, tintConfig.tint, tintConfig.amount);
     }
-    grad.addColorStop(i / 2, color);
+    colors.push(color);
   }
-  ctx.fillStyle = grad;
+  return colors as [string, string, string];
+}
+
+function drawSkyGradient(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  gradColors: [string, string, string],
+  cachedGrad: { h: number; grad: CanvasGradient } | null
+): { h: number; grad: CanvasGradient } {
+  let entry = cachedGrad;
+  if (!entry || entry.h !== h) {
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    for (let i = 0; i < 3; i++) {
+      grad.addColorStop(i / 2, gradColors[i]);
+    }
+    entry = { h, grad };
+  }
+  ctx.fillStyle = entry.grad;
   ctx.fillRect(0, 0, w, h);
+  return entry;
 }
 
 function drawStars(
@@ -343,6 +364,45 @@ function drawMoon(
   ctx.restore();
 }
 
+// 雲の形をオフスクリーンCanvasに1回だけ焼く
+function ensureCloudCache(cloud: Cloud): CloudCache {
+  if (cloud.cache) return cloud.cache;
+
+  const pad = 2; // ぼやけ防止の余白
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const b of cloud.blobs) {
+    minX = Math.min(minX, b.dx - b.rx);
+    minY = Math.min(minY, b.dy - b.ry);
+    maxX = Math.max(maxX, b.dx + b.rx);
+    maxY = Math.max(maxY, b.dy + b.ry);
+  }
+
+  const cw = Math.ceil(maxX - minX) + pad * 2;
+  const ch = Math.ceil(maxY - minY) + pad * 2;
+  const offCanvas = document.createElement("canvas");
+  offCanvas.width = cw;
+  offCanvas.height = ch;
+  const offCtx = offCanvas.getContext("2d")!;
+
+  offCtx.fillStyle = "rgba(255, 255, 255, 0.8)";
+  for (const blob of cloud.blobs) {
+    offCtx.beginPath();
+    offCtx.ellipse(
+      blob.dx - minX + pad,
+      blob.dy - minY + pad,
+      blob.rx,
+      blob.ry,
+      0,
+      0,
+      Math.PI * 2
+    );
+    offCtx.fill();
+  }
+
+  cloud.cache = { canvas: offCanvas, ox: minX - pad, oy: minY - pad };
+  return cloud.cache;
+}
+
 function drawClouds(
   ctx: CanvasRenderingContext2D,
   clouds: Cloud[],
@@ -353,23 +413,10 @@ function drawClouds(
     cloud.x += cloud.speed * dt;
     if (cloud.x > w + cloud.width) cloud.x = -cloud.width;
 
+    const c = ensureCloudCache(cloud);
     ctx.save();
     ctx.globalAlpha = cloud.opacity;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-
-    for (const blob of cloud.blobs) {
-      ctx.beginPath();
-      ctx.ellipse(
-        cloud.x + blob.dx,
-        cloud.y + blob.dy,
-        blob.rx,
-        blob.ry,
-        0,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-    }
+    ctx.drawImage(c.canvas, cloud.x + c.ox, cloud.y + c.oy);
     ctx.restore();
   }
 }
@@ -635,10 +682,14 @@ export default function SkyCanvas({
     const startTime = performance.now();
     let prevTime = startTime;
 
+    // グラデーション色はphase/progress/weatherが同じ間は不変なのでループ外で1回だけ計算
+    const gradColors = computeGradientColors(phase, phaseProgress, weatherCondition);
+    let gradCache: { h: number; grad: CanvasGradient } | null = null;
+
     // reducedMotion: グラデーションだけ 1 回描いて終了、ループしない
     if (reducedMotion) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawSkyGradient(ctx, w(), h(), phase, phaseProgress, weatherCondition);
+      drawSkyGradient(ctx, w(), h(), gradColors, null);
       return () => {
         window.removeEventListener("resize", resize);
       };
@@ -691,7 +742,7 @@ export default function SkyCanvas({
       const cw = w();
       const ch = h();
 
-      drawSkyGradient(ctx, cw, ch, phase, phaseProgress, weatherCondition);
+      gradCache = drawSkyGradient(ctx, cw, ch, gradColors, gradCache);
 
       drawStars(ctx, starsRef.current, time, phase, phaseProgress);
 
