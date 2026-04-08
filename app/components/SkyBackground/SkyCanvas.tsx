@@ -213,35 +213,50 @@ function createLightningState(): LightningState {
 }
 
 // --- 描画関数 ---
-function drawSkyGradient(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
+
+// グラデーションの色を事前計算する（phase/progress/weather が同じなら結果も同じ）
+function computeGradientColors(
   phase: SkyPhase,
   progress: number,
   weather: WeatherCondition
-) {
+): [string, string, string] {
   const phaseIdx = PHASE_ORDER.indexOf(phase);
   const prevPhase = PHASE_ORDER[(phaseIdx - 1 + 4) % 4];
   const currentColors = SKY_COLORS[phase];
   const prevColors = SKY_COLORS[prevPhase];
 
-  // 秘伝のどんより
   const tintConfig = WEATHER_TINT[weather];
-
-  // フェーズの最初の20%は前フェーズからブレンド
   const blendT = progress < 0.2 ? progress / 0.2 : 1;
 
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  const colors: string[] = [];
   for (let i = 0; i < 3; i++) {
     let color = lerpColor(prevColors[i], currentColors[i], blendT);
     if (phase !== "night" && phase !== "sunset" && tintConfig) {
       color = lerpColor(color, tintConfig.tint, tintConfig.amount);
     }
-    grad.addColorStop(i / 2, color);
+    colors.push(color);
   }
-  ctx.fillStyle = grad;
+  return colors as [string, string, string];
+}
+
+function drawSkyGradient(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  gradColors: [string, string, string],
+  cachedGrad: { h: number; grad: CanvasGradient } | null
+): { h: number; grad: CanvasGradient } {
+  let entry = cachedGrad;
+  if (!entry || entry.h !== h) {
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    for (let i = 0; i < 3; i++) {
+      grad.addColorStop(i / 2, gradColors[i]);
+    }
+    entry = { h, grad };
+  }
+  ctx.fillStyle = entry.grad;
   ctx.fillRect(0, 0, w, h);
+  return entry;
 }
 
 function drawStars(
@@ -635,10 +650,14 @@ export default function SkyCanvas({
     const startTime = performance.now();
     let prevTime = startTime;
 
+    // グラデーション色はphase/progress/weatherが同じ間は不変なのでループ外で1回だけ計算
+    const gradColors = computeGradientColors(phase, phaseProgress, weatherCondition);
+    let gradCache: { h: number; grad: CanvasGradient } | null = null;
+
     // reducedMotion: グラデーションだけ 1 回描いて終了、ループしない
     if (reducedMotion) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawSkyGradient(ctx, w(), h(), phase, phaseProgress, weatherCondition);
+      drawSkyGradient(ctx, w(), h(), gradColors, null);
       return () => {
         window.removeEventListener("resize", resize);
       };
@@ -691,7 +710,7 @@ export default function SkyCanvas({
       const cw = w();
       const ch = h();
 
-      drawSkyGradient(ctx, cw, ch, phase, phaseProgress, weatherCondition);
+      gradCache = drawSkyGradient(ctx, cw, ch, gradColors, gradCache);
 
       drawStars(ctx, starsRef.current, time, phase, phaseProgress);
 
