@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useSkyDrawings } from "@/app/contexts/SkyDrawings";
 
 type Tool = "pen" | "eraser";
@@ -34,6 +34,7 @@ function pickFlyAnimation() {
 
 export default function DrawingCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const isDrawing = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const fadeRafRef = useRef<number | null>(null);
@@ -43,6 +44,19 @@ export default function DrawingCanvas() {
   const [flyingImage, setFlyingImage] = useState<string | null>(null);
   const [flyAnimation, setFlyAnimation] = useState<string>("");
   const { addDrawing } = useSkyDrawings();
+
+  // context をキャッシュ & アンマウント時にフェードRAFをキャンセル
+  useEffect(() => {
+    if (canvasRef.current) {
+      ctxRef.current = canvasRef.current.getContext("2d");
+    }
+    return () => {
+      if (fadeRafRef.current) {
+        cancelAnimationFrame(fadeRafRef.current);
+        fadeRafRef.current = null;
+      }
+    };
+  }, []);
 
   const getPos = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -56,9 +70,7 @@ export default function DrawingCanvas() {
 
   // rAF で canvas をじわっとフェードアウトしてクリア
   const startFadeOut = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = ctxRef.current;
     if (!ctx) return;
 
     if (fadeRafRef.current) cancelAnimationFrame(fadeRafRef.current);
@@ -108,8 +120,7 @@ export default function DrawingCanvas() {
       // フェード中に描き始めたら残像ごとクリアして白紙に
       if (fadeRafRef.current) {
         stopFade();
-        const ctx = canvas.getContext("2d");
-        if (ctx) ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+        ctxRef.current?.clearRect(0, 0, CANVAS_W, CANVAS_H);
       }
       canvas.setPointerCapture(e.pointerId);
       isDrawing.current = true;
@@ -121,9 +132,8 @@ export default function DrawingCanvas() {
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!isDrawing.current || !lastPos.current) return;
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (!canvas || !ctx) return;
+      const ctx = ctxRef.current;
+      if (!ctx) return;
 
       const pos = getPos(e);
 
@@ -157,16 +167,14 @@ export default function DrawingCanvas() {
 
   const handleClear = useCallback(() => {
     stopFade();
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    ctxRef.current?.clearRect(0, 0, CANVAS_W, CANVAS_H);
   }, [stopFade]);
 
   const handleFly = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = ctxRef.current;
     if (!ctx) return;
     const pixels = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H).data;
     const hasContent = pixels.some((_, i) => i % 4 === 3 && pixels[i] > 0);
