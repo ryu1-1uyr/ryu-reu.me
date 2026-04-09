@@ -1,58 +1,32 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, DragEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import TagInput from "@/app/components/TagInput";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const DRAFT_KEY = "upload-draft";
 
 type FailedUpload = {
   file: File;
   error: string;
 };
 
-function loadDraft() {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as {
-      title: string;
-      content: string;
-      published: boolean;
-      tags?: string[];
-      savedAt: string;
-    };
-  } catch {
-    return null;
-  }
-}
+export default function UpdatePage() {
+  const { slug: rawSlug } = useParams<{ slug: string }>();
+  const slug = decodeURIComponent(rawSlug);
+  const router = useRouter();
 
-export default function UploadPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [uploading, setUploading] = useState(false);
   const [published, setPublished] = useState(true);
   const [tags, setTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
-
-  // HydrationのエラーがうざいのでHTMLマウント後にlocalStorageから下書きを復元
-  useEffect(() => {
-    const draft = loadDraft();
-    if (draft) {
-      setTitle(draft.title);
-      setContent(draft.content);
-      setPublished(draft.published);
-      setTags(draft.tags ?? []);
-      setDraftRestoredAt(draft.savedAt);
-    }
-  }, []);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -62,7 +36,30 @@ export default function UploadPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const scrollSourceRef = useRef<"editor" | "preview" | null>(null);
-  const router = useRouter();
+
+  // 既存記事を取得してフォームに反映
+  useEffect(() => {
+    fetch(`/api/posts/${encodeURIComponent(slug)}`)
+      .then((res) => {
+        if (res.status === 401) {
+          router.push("/login");
+          return null;
+        }
+        if (!res.ok) throw new Error("Not found");
+        return res.json();
+      })
+      .then((data) => {
+        if (!data) return;
+        setTitle(data.title);
+        setContent(data.content);
+        setPublished(data.published);
+        setTags(data.tags ?? []);
+      })
+      .catch(() => {
+        setMessage({ type: "error", text: "記事の取得に失敗したよ" });
+      })
+      .finally(() => setLoading(false));
+  }, [slug, router]);
 
   const handleEditorScroll = useCallback(() => {
     if (scrollSourceRef.current === "preview") return;
@@ -74,7 +71,9 @@ export default function UploadPage() {
     if (scrollable <= 0) return;
     const ratio = ta.scrollTop / scrollable;
     pv.scrollTop = ratio * (pv.scrollHeight - pv.clientHeight);
-    requestAnimationFrame(() => { scrollSourceRef.current = null; });
+    requestAnimationFrame(() => {
+      scrollSourceRef.current = null;
+    });
   }, []);
 
   const handlePreviewScroll = useCallback(() => {
@@ -87,28 +86,10 @@ export default function UploadPage() {
     if (scrollable <= 0) return;
     const ratio = pv.scrollTop / scrollable;
     ta.scrollTop = ratio * (ta.scrollHeight - ta.clientHeight);
-    requestAnimationFrame(() => { scrollSourceRef.current = null; });
+    requestAnimationFrame(() => {
+      scrollSourceRef.current = null;
+    });
   }, []);
-
-  // 自動保存（1秒デバウンス）
-  useEffect(() => {
-    if (!title && !content) return;
-    const timer = setTimeout(() => {
-      localStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({
-          title,
-          content,
-          published,
-          tags,
-          savedAt: new Date().toISOString(),
-        })
-      );
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [title, content, published, tags]);
-
-  const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
 
   const handleUnauthorized = useCallback((res: Response) => {
     if (res.status === 401) {
@@ -151,10 +132,8 @@ export default function UploadPage() {
 
         if (!res.ok) throw new Error(data.error);
 
-        // 成功したらリトライリストから除去
         setFailedUploads((prev) => prev.filter((f) => f.file !== file));
 
-        // カーソル位置に markdown 画像構文を挿入
         const textarea = textareaRef.current;
         const imageMarkdown = `![${file.name}](${data.url})`;
 
@@ -228,8 +207,8 @@ export default function UploadPage() {
     setMessage(null);
 
     try {
-      const res = await fetch("/api/posts", {
-        method: "POST",
+      const res = await fetch(`/api/posts/${encodeURIComponent(slug)}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, content, published, tags }),
       });
@@ -238,51 +217,31 @@ export default function UploadPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      clearDraft();
-      setMessage({
-        type: "success",
-        text: `記事を保存したよ (ID: ${data.id})`,
-      });
+      setMessage({ type: "success", text: "記事を更新したよ" });
     } catch (err) {
       setMessage({
         type: "error",
-        text: `保存失敗: ${err instanceof Error ? err.message : "unknown"}`,
+        text: `更新失敗: ${err instanceof Error ? err.message : "unknown"}`,
       });
     } finally {
       setSaving(false);
     }
   };
 
+  if (loading) {
+    return (
+      <main className="bg-elements-background/80 backdrop-blur-sm min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-elements-paragraph/20 border-t-elements-button animate-spin" />
+      </main>
+    );
+  }
+
   return (
     <main className="bg-elements-background/80 backdrop-blur-sm min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-elements-headline mb-6">
-          記事エディタ
+          記事を編集
         </h1>
-
-        {/* 下書き復元通知 */}
-        {draftRestoredAt && (
-          <div className="mb-4 flex items-center justify-between rounded-lg border border-elements-button/30 bg-elements-button/10 px-4 py-2">
-            <span className="text-sm text-elements-paragraph">
-              下書きを復元したよ（
-              {new Date(draftRestoredAt).toLocaleString("ja-JP")}）
-            </span>
-            <button
-              onClick={() => {
-                clearDraft();
-                setTitle("");
-                setContent("");
-                setPublished(true);
-                setTags([]);
-                setMessage(null);
-                window.location.reload();
-              }}
-              className="text-xs text-red-400 hover:text-red-300"
-            >
-              破棄する
-            </button>
-          </div>
-        )}
 
         {/* メタ情報 */}
         <div className="mb-6">
@@ -308,7 +267,6 @@ export default function UploadPage() {
 
         {/* エディタ + プレビュー */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* 左: エディタ */}
           <div>
             <label className="block text-sm text-elements-paragraph mb-1">
               本文 (Markdown)
@@ -335,12 +293,15 @@ export default function UploadPage() {
             />
           </div>
 
-          {/* 右: プレビュー */}
           <div>
             <label className="block text-sm text-elements-paragraph mb-1">
               プレビュー
             </label>
-            <div ref={previewRef} onScroll={handlePreviewScroll} className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto">
+            <div
+              ref={previewRef}
+              onScroll={handlePreviewScroll}
+              className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto"
+            >
               {content ? (
                 <article className="prose prose-neutral max-w-none">
                   <ReactMarkdown
@@ -407,7 +368,7 @@ export default function UploadPage() {
             disabled={saving}
             className="px-6 py-2 rounded-lg bg-elements-button text-elements-background font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {saving ? "保存中..." : "記事を保存"}
+            {saving ? "更新中..." : "記事を更新"}
           </button>
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <div
