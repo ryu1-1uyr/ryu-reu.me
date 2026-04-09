@@ -11,8 +11,8 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // 未認証で /upload にアクセス → /login に飛ばす
-  if (!user && pathname.startsWith("/upload")) {
+  // 未認証で /upload, /update にアクセス → /login に飛ばす
+  if (!user && (pathname.startsWith("/upload") || pathname.startsWith("/update"))) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
@@ -29,5 +29,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/upload/:path*", "/login"],
+  matcher: ["/upload/:path*", "/update/:path*", "/login"],
 };
