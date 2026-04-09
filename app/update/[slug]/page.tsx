@@ -91,13 +91,13 @@ export default function UpdatePage() {
     });
   }, []);
 
-  const handleUnauthorized = (res: Response) => {
+  const handleUnauthorized = useCallback((res: Response) => {
     if (res.status === 401) {
       router.push("/login");
       return true;
     }
     return false;
-  };
+  }, [router]);
 
   const validateFile = (file: File): string | null => {
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -164,7 +164,7 @@ export default function UpdatePage() {
         setUploading(false);
       }
     },
-    [content]
+    [content, handleUnauthorized]
   );
 
   const handleDrop = useCallback(
