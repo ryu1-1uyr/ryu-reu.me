@@ -331,6 +331,17 @@ function drawSun(
   ctx.restore();
 }
 
+// 月面クレーターの配置（正規化座標: -1〜1）
+const MOON_CRATERS = [
+  { dx: -0.3, dy: -0.25, r: 0.12 },
+  { dx: 0.15, dy: -0.4, r: 0.08 },
+  { dx: -0.1, dy: 0.3, r: 0.15 },
+  { dx: 0.35, dy: 0.1, r: 0.1 },
+  { dx: -0.4, dy: 0.05, r: 0.07 },
+  { dx: 0.05, dy: -0.05, r: 0.18 },
+  { dx: 0.25, dy: 0.35, r: 0.09 },
+];
+
 function drawMoon(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -340,27 +351,141 @@ function drawMoon(
 ) {
   if (phase !== "night") return;
 
-  // アーチを描く
+  const R = 28;
   const angle = Math.PI * (0.1 + progress * 0.8);
-  const x = w * (0.2 + progress * 0.6);
-  const y = h * (0.3 - Math.sin(angle) * 0.15);
+  const cx = w * (0.2 + progress * 0.6);
+  const cy = h * (0.3 - Math.sin(angle) * 0.15);
 
   ctx.save();
-  ctx.shadowColor = "#b8c1ec";
-  ctx.shadowBlur = 40;
 
-  // 満月
-  ctx.beginPath();
-  ctx.arc(x, y, 25, 0, Math.PI * 2);
-  ctx.fillStyle = "#b8c1ec";
-  ctx.fill();
+  // --- 1. 大気グロー（多層） ---
+  const glowLayers = [
+    { radius: R * 4.5, alpha: 0.03 },
+    { radius: R * 3.0, alpha: 0.06 },
+    { radius: R * 2.0, alpha: 0.1 },
+    { radius: R * 1.5, alpha: 0.15 },
+  ];
+  for (const gl of glowLayers) {
+    const grd = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, gl.radius);
+    grd.addColorStop(0, `rgba(184, 193, 236, ${gl.alpha})`);
+    grd.addColorStop(1, "rgba(184, 193, 236, 0)");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(cx, cy, gl.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-  // 三日月マスク
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.beginPath();
-  ctx.arc(x + 10, y - 5, 20, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalCompositeOperation = "source-over";
+  // --- 2〜6: オフスクリーンで月ディスクを描く ---
+  // destination-out がグローを巻き込まないように隔離する
+  const pad = 4;
+  const offSize = (R + pad) * 2;
+  const off = document.createElement("canvas");
+  off.width = offSize;
+  off.height = offSize;
+  const oc = off.getContext("2d")!;
+  // オフスクリーン上の月中心
+  const ocx = R + pad;
+  const ocy = R + pad;
+
+  // 地球照（暗い側のうっすらした光）
+  oc.beginPath();
+  oc.arc(ocx, ocy, R + 1, 0, Math.PI * 2);
+  const earthshine = oc.createRadialGradient(
+    ocx + R * 0.3,
+    ocy - R * 0.2,
+    R * 0.1,
+    ocx,
+    ocy,
+    R + 1
+  );
+  earthshine.addColorStop(0, "rgba(100, 120, 180, 0.12)");
+  earthshine.addColorStop(0.6, "rgba(80, 100, 160, 0.06)");
+  earthshine.addColorStop(1, "rgba(60, 80, 140, 0)");
+  oc.fillStyle = earthshine;
+  oc.fill();
+
+  // 月本体（球体グラデーション）
+  oc.beginPath();
+  oc.arc(ocx, ocy, R, 0, Math.PI * 2);
+  const bodyGrad = oc.createRadialGradient(
+    ocx - R * 0.3,
+    ocy - R * 0.3,
+    R * 0.1,
+    ocx,
+    ocy,
+    R
+  );
+  bodyGrad.addColorStop(0, "#e8ecf8");
+  bodyGrad.addColorStop(0.4, "#c8cfea");
+  bodyGrad.addColorStop(0.75, "#b0b8d8");
+  bodyGrad.addColorStop(1, "#8a94be");
+  oc.fillStyle = bodyGrad;
+  oc.fill();
+
+  // クレーター
+  for (const cr of MOON_CRATERS) {
+    const crx = ocx + cr.dx * R;
+    const cry = ocy + cr.dy * R;
+    const crr = cr.r * R;
+    const crGrad = oc.createRadialGradient(
+      crx - crr * 0.2,
+      cry - crr * 0.2,
+      crr * 0.1,
+      crx,
+      cry,
+      crr
+    );
+    crGrad.addColorStop(0, "rgba(140, 148, 185, 0.25)");
+    crGrad.addColorStop(0.7, "rgba(120, 128, 170, 0.15)");
+    crGrad.addColorStop(1, "rgba(100, 110, 155, 0)");
+    oc.beginPath();
+    oc.arc(crx, cry, crr, 0, Math.PI * 2);
+    oc.fillStyle = crGrad;
+    oc.fill();
+  }
+
+  // #0d1b2a
+  // 三日月シャドウ（source-atop で月の上にだけ夜空色を重ねる）
+  oc.globalCompositeOperation = "source-atop";
+  const shadowGrad = oc.createRadialGradient(
+    ocx + R * 0.55,
+    ocy - R * 0.55,
+    R * 0.5,
+    ocx + R * 0.45,
+    ocy - R * 0.3,
+    R * 1.02
+  );
+  const shadowColor = "rgba(11, 15, 39, 0.97)";
+  shadowGrad.addColorStop(0, shadowColor);
+  shadowGrad.addColorStop(0.58, shadowColor);
+  shadowGrad.addColorStop(1, "rgba(35, 41, 70, 0)");
+  oc.beginPath();
+  oc.arc(ocx + R * 0.45, ocy - R * 0.1, R * 1.05, 0, Math.PI * 2);
+  oc.fillStyle = shadowGrad;
+  oc.fill();
+  oc.globalCompositeOperation = "source-over";
+
+  // リムライト
+  oc.beginPath();
+  oc.arc(ocx, ocy, R, 0, Math.PI * 2);
+  const rimGrad = oc.createRadialGradient(
+    ocx - R * 0.5,
+    ocy - R * 0.3,
+    R * 0.6,
+    ocx,
+    ocy,
+    R
+  );
+  rimGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+  rimGrad.addColorStop(0.85, "rgba(255, 255, 255, 0)");
+  rimGrad.addColorStop(0.95, "rgba(220, 225, 245, 0.3)");
+  rimGrad.addColorStop(1, "rgba(200, 210, 240, 0.1)");
+  oc.fillStyle = rimGrad;
+  oc.fill();
+
+  // オフスクリーンをメインキャンバスに転写
+  ctx.drawImage(off, cx - ocx, cy - ocy);
+
   ctx.restore();
 }
 
@@ -369,7 +494,10 @@ function ensureCloudCache(cloud: Cloud): CloudCache {
   if (cloud.cache) return cloud.cache;
 
   const pad = 2; // ぼやけ防止の余白
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (const b of cloud.blobs) {
     minX = Math.min(minX, b.dx - b.rx);
     minY = Math.min(minY, b.dy - b.ry);
@@ -683,7 +811,11 @@ export default function SkyCanvas({
     let prevTime = startTime;
 
     // グラデーション色はphase/progress/weatherが同じ間は不変なのでループ外で1回だけ計算
-    const gradColors = computeGradientColors(phase, phaseProgress, weatherCondition);
+    const gradColors = computeGradientColors(
+      phase,
+      phaseProgress,
+      weatherCondition
+    );
     let gradCache: { h: number; grad: CanvasGradient } | null = null;
 
     // reducedMotion: グラデーションだけ 1 回描いて終了、ループしない
