@@ -44,6 +44,11 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [IconImage.src],
   },
+  alternates: {
+    types: {
+      "application/rss+xml": `${siteUrl}/feed.xml`,
+    },
+  },
 };
 
 export default function RootLayout({
