@@ -83,6 +83,112 @@ type Cloud = {
   cache?: CloudCache;
 };
 
+// 流れ星
+type ShootingStar = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  length: number;
+  life: number;      // 残り寿命 (0〜1)
+  maxLife: number;    // 初期寿命
+  brightness: number; // 明るさ (0.6〜1.0)
+};
+
+type ShootingStarState = {
+  stars: ShootingStar[];
+  nextSpawnMs: number; // 次の出現までの残り時間
+};
+
+function createShootingStarState(): ShootingStarState {
+  return { stars: [], nextSpawnMs: 3000 + Math.random() * 5000 };
+}
+
+function spawnShootingStar(w: number, h: number): ShootingStar {
+  // 画面上部 30% のどこかから出現
+  const x = Math.random() * w;
+  const y = Math.random() * h * 0.3;
+  // 斜め下方向（左下 or 右下）にランダム角度
+  const angle = Math.PI * (0.55 + Math.random() * 0.35) * (Math.random() < 0.5 ? 1 : -1);
+  const speed = 4 + Math.random() * 4;
+  const maxLife = 0.6 + Math.random() * 0.6; // 0.6〜1.2秒
+  return {
+    x, y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.abs(Math.sin(angle)) * speed,
+    length: 30 + Math.random() * 50,
+    life: maxLife,
+    maxLife,
+    brightness: 0.6 + Math.random() * 0.4,
+  };
+}
+
+function tickShootingStars(
+  state: ShootingStarState,
+  w: number,
+  h: number,
+  deltaMs: number,
+  isNight: boolean
+) {
+  const dtSec = deltaMs / 1000;
+
+  // 夜以外は新規生成しない（既存は消えるまで描画）
+  if (isNight) {
+    state.nextSpawnMs -= deltaMs;
+    if (state.nextSpawnMs <= 0) {
+      state.stars.push(spawnShootingStar(w, h));
+      state.nextSpawnMs = 5000 + Math.random() * 10000; // 5〜15秒後に次
+    }
+  }
+
+  // 更新 & 寿命切れ除去
+  state.stars = state.stars.filter((s) => {
+    s.x += s.vx * dtSec * 60;
+    s.y += s.vy * dtSec * 60;
+    s.life -= dtSec;
+    return s.life > 0;
+  });
+}
+
+function drawShootingStars(
+  ctx: CanvasRenderingContext2D,
+  state: ShootingStarState
+) {
+  for (const s of state.stars) {
+    const alpha = Math.min(s.life / s.maxLife, 1) * s.brightness;
+    if (alpha <= 0) continue;
+
+    // 尾の方向（進行方向の逆）
+    const speed = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+    const nx = -s.vx / speed;
+    const ny = -s.vy / speed;
+    const tailX = s.x + nx * s.length;
+    const tailY = s.y + ny * s.length;
+
+    // グラデーションの尾
+    const grad = ctx.createLinearGradient(s.x, s.y, tailX, tailY);
+    grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+    grad.addColorStop(0.3, `rgba(200, 210, 240, ${alpha * 0.5})`);
+    grad.addColorStop(1, "rgba(200, 210, 240, 0)");
+
+    ctx.save();
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(tailX, tailY);
+    ctx.stroke();
+
+    // 先頭のキラッとした光点
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 // 稲妻の頂点リスト（メインボルト + サブボルト）
 type Bolt = { x: number; y: number }[];
 type LightningState = {
@@ -720,6 +826,7 @@ export default function SkyCanvas({
   const snowRef = useRef<Snowflake[]>([]);
   const cloudsRef = useRef<Cloud[]>([]);
   const lightningRef = useRef<LightningState>(createLightningState());
+  const shootingRef = useRef<ShootingStarState>(createShootingStarState());
   const driftingDrawingsRef = useRef<DriftingDrawing[]>([]);
   const initedRef = useRef(false);
 
@@ -877,6 +984,10 @@ export default function SkyCanvas({
       gradCache = drawSkyGradient(ctx, cw, ch, gradColors, gradCache);
 
       drawStars(ctx, starsRef.current, time, phase, phaseProgress);
+
+      // 流れ星（星と同じ層、月より奥）
+      tickShootingStars(shootingRef.current, cw, ch, deltaMs, phase === "night");
+      drawShootingStars(ctx, shootingRef.current);
 
       drawSun(ctx, cw, ch, phase, phaseProgress);
       drawMoon(ctx, cw, ch, phase, phaseProgress);
