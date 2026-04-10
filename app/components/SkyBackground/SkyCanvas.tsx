@@ -446,25 +446,23 @@ function drawSun(
   w: number,
   h: number,
   phase: SkyPhase,
-  progress: number
+  progress: number,
+  time: number
 ) {
   if (phase === "night") return;
 
   let x: number, y: number, opacity: number;
 
   if (phase === "sunrise") {
-    // 右から上がる
     x = w * 0.8;
     y = h * (0.9 - progress * 0.5);
     opacity = Math.min(1, progress * 2);
   } else if (phase === "day") {
-    // アーチを描く
     const angle = Math.PI * (0.1 + progress * 0.8);
     x = w * (0.2 + progress * 0.6);
     y = h * (0.4 - Math.sin(angle) * 0.25);
     opacity = 1;
   } else {
-    // 沈んでいく
     x = w * 0.2;
     y = h * (0.4 + progress * 0.5);
     opacity = Math.max(0, 1 - progress * 1.5);
@@ -472,14 +470,52 @@ function drawSun(
 
   if (opacity <= 0) return;
 
+  const R = 30;
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.shadowColor = "#f2c57c";
-  ctx.shadowBlur = 60;
+
+  // --- 1. 軽めのグロー ---
+  const grd = ctx.createRadialGradient(x, y, R * 0.5, x, y, R * 2.5);
+  grd.addColorStop(0, "rgba(255, 245, 220, 0.12)");
+  grd.addColorStop(1, "rgba(242, 197, 124, 0)");
   ctx.beginPath();
-  ctx.arc(x, y, 30, 0, Math.PI * 2);
-  ctx.fillStyle = "#f2c57c";
+  ctx.arc(x, y, R * 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = grd;
   ctx.fill();
+
+  // --- 2. コロナ（ゆらゆら動く光の輪） ---
+  const coronaCount = 5;
+  for (let i = 0; i < coronaCount; i++) {
+    const baseAngle = (Math.PI * 2 * i) / coronaCount;
+    // 各コロナが独立した周期でゆらゆら
+    const wobble = Math.sin(time * 0.0008 + i * 1.7) * 0.3;
+    const pulse = 1 + Math.sin(time * 0.0012 + i * 2.3) * 0.15;
+    const a = baseAngle + wobble;
+    const dist = R * 0.15;
+    const cx = x + Math.cos(a) * dist;
+    const cy = y + Math.sin(a) * dist;
+    const outerR = R * (1.4 + pulse * 0.3);
+
+    const cGrad = ctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, outerR);
+    cGrad.addColorStop(0, "rgba(255, 235, 180, 0)");
+    cGrad.addColorStop(0.4, `rgba(255, 225, 160, ${0.06 + pulse * 0.03})`);
+    cGrad.addColorStop(1, "rgba(242, 197, 124, 0)");
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+    ctx.fillStyle = cGrad;
+    ctx.fill();
+  }
+
+  // --- 3. 本体（白〜淡黄のシンプルな円） ---
+  const bodyGrad = ctx.createRadialGradient(x, y, 0, x, y, R);
+  bodyGrad.addColorStop(0, "#fffef5");
+  bodyGrad.addColorStop(0.4, "#fff8e0");
+  bodyGrad.addColorStop(1, "#f9deb2");
+  ctx.beginPath();
+  ctx.arc(x, y, R, 0, Math.PI * 2);
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
   ctx.restore();
 }
 
@@ -1041,7 +1077,7 @@ export default function SkyCanvas({
       );
       drawShootingStars(ctx, shootingRef.current);
 
-      drawSun(ctx, cw, ch, phase, phaseProgress);
+      drawSun(ctx, cw, ch, phase, phaseProgress, time);
       drawMoon(ctx, cw, ch, phase, phaseProgress);
 
       if (
