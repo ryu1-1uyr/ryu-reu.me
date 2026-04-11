@@ -27,7 +27,8 @@ const schema = {
 
 // Next.js 画像最適化対象のホスト
 const OPTIMIZABLE_HOSTS = ["supabase.co"];
-const RESPONSIVE_WIDTHS = [480, 768, 1024, 1280];
+// Next.js デフォルトの deviceSizes に合わせる（それ以外の幅は 400 になる）
+const RESPONSIVE_WIDTHS = [640, 828, 1080, 1200];
 
 function isOptimizable(src: string): boolean {
   try {
@@ -61,9 +62,9 @@ function rehypeOptimizeImages() {
           .map((w) => `${nextImageUrl(src, w)} ${w}w`)
           .join(", ");
         node.properties.srcSet = srcset;
-        node.properties.sizes = "(max-width: 768px) 100vw, 768px";
+        node.properties.sizes = "(max-width: 640px) 100vw, 828px";
         // src はフォールバック（srcset 非対応ブラウザ用）
-        node.properties.src = nextImageUrl(src, 768);
+        node.properties.src = nextImageUrl(src, 828);
       }
     });
   };
