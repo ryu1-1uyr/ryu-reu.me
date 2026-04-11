@@ -8,12 +8,15 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 
-// img の class / loading 属性を許可（将来の next/image 最適化用）
+// rehype-sanitize は hast (HTML AST) のプロパティ名を使う
+// HTML の class → hast では className、data-* → data* で一括許可
 const schema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
-    img: [...(defaultSchema.attributes?.img ?? []), "class", "loading"],
+    img: [...(defaultSchema.attributes?.img ?? []), "className", "loading"],
+    blockquote: [...(defaultSchema.attributes?.blockquote ?? []), "className", "data*"],
+    a: [...(defaultSchema.attributes?.a ?? []), "className"],
   },
 };
 

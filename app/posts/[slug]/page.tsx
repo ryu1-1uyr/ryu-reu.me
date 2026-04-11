@@ -6,6 +6,7 @@ import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
 import TagChip from "@/app/components/TagChip";
 import EditButton from "./EditButton";
+import TwitterEmbed from "./TwitterEmbed";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -53,6 +54,7 @@ export default async function PostPage({ params }: Props) {
             className="bg-elements-headline rounded-lg p-8 prose prose-neutral max-w-none"
             dangerouslySetInnerHTML={{ __html: html }}
           />
+          <TwitterEmbed html={html} />
 
           <div className="mt-3 flex justify-end items-center gap-2">
             <EditButton slug={post.slug} />
