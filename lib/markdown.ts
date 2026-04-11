@@ -19,6 +19,7 @@ const schema = {
     img: [
       ...(defaultSchema.attributes?.img ?? []),
       "className", "loading", "decoding", "sizes", "srcSet",
+      "width", "height",
     ],
     blockquote: [...(defaultSchema.attributes?.blockquote ?? []), "className", "data*"],
     a: [...(defaultSchema.attributes?.a ?? []), "className"],
@@ -52,9 +53,11 @@ function rehypeOptimizeImages() {
       const src = node.properties?.src;
       if (typeof src !== "string" || !src) return;
 
-      // 全画像に lazy loading
+      // 全画像に lazy loading + CLS 防止用のデフォルトサイズ
       node.properties.loading = "lazy";
       node.properties.decoding = "async";
+      if (!node.properties.width) node.properties.width = 828;
+      if (!node.properties.height) node.properties.height = 466;
 
       // Next.js 画像最適化（対象ホストのみ）
       if (isOptimizable(src)) {

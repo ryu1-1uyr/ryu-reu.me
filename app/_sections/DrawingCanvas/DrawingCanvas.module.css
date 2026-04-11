@@ -1,0 +1,76 @@
+/* fly-to-sky アニメーション — DrawingCanvas でのみ使用 */
+
+@keyframes fly-to-sky-straight {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+    animation-timing-function: ease-out;
+  }
+  20% {
+    transform: translate(0, -15vh) scale(0.85);
+    opacity: 1;
+  }
+  65% {
+    transform: translate(0, -60vh) scale(0.5);
+    opacity: 0.7;
+    animation-timing-function: ease-in;
+  }
+  100% {
+    transform: translate(0, -105vh) scale(0.15);
+    opacity: 0;
+  }
+}
+
+@keyframes fly-to-sky-left {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+    animation-timing-function: ease-out;
+  }
+  20% {
+    transform: translate(-4vw, -18vh) scale(0.85) rotate(-4deg);
+    opacity: 1;
+  }
+  55% {
+    transform: translate(-18vw, -55vh) scale(0.52) rotate(-12deg);
+    opacity: 0.7;
+    animation-timing-function: ease-in;
+  }
+  100% {
+    transform: translate(-32vw, -105vh) scale(0.15) rotate(-22deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fly-to-sky-right {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  20% {
+    transform: translate(4vw, -15vh) scale(0.85) rotate(4deg);
+    opacity: 1;
+    animation-timing-function: ease-out;
+  }
+  55% {
+    transform: translate(14vw, -52vh) scale(0.52) rotate(11deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(24vw, -105vh) scale(0.15) rotate(20deg);
+    opacity: 0;
+    animation-timing-function: ease-in;
+  }
+}
+
+.flyToSkyStraight {
+  animation: fly-to-sky-straight 2.2s cubic-bezier(0.37, 0, 0.63, 1) forwards;
+}
+
+.flyToSkyLeft {
+  animation: fly-to-sky-left 2.4s cubic-bezier(0.37, 0, 0.63, 1) forwards;
+}
+
+.flyToSkyRight {
+  animation: fly-to-sky-right 2.2s cubic-bezier(0.37, 0, 0.63, 1) forwards;
+}
