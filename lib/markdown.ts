@@ -19,7 +19,7 @@ const schema = {
     img: [
       ...(defaultSchema.attributes?.img ?? []),
       "className", "loading", "decoding", "sizes", "srcSet",
-      "width", "height",
+      "width", "height", "fetchPriority",
     ],
     blockquote: [...(defaultSchema.attributes?.blockquote ?? []), "className", "data*"],
     a: [...(defaultSchema.attributes?.a ?? []), "className"],
@@ -47,17 +47,28 @@ function nextImageUrl(src: string, width: number, quality = 75): string {
 /** img タグに lazy loading + Next.js 画像最適化を適用する rehype プラグイン */
 function rehypeOptimizeImages() {
   return (tree: Root) => {
+    let isFirstImage = true;
+
     visit(tree, "element", (node: Element) => {
       if (node.tagName !== "img") return;
 
       const src = node.properties?.src;
       if (typeof src !== "string" || !src) return;
 
-      // 全画像に lazy loading + CLS 防止用のデフォルトサイズ
-      node.properties.loading = "lazy";
-      node.properties.decoding = "async";
+      // CLS 防止用のデフォルトサイズ
       if (!node.properties.width) node.properties.width = 828;
       if (!node.properties.height) node.properties.height = 466;
+
+      if (isFirstImage) {
+        // 最初の画像は LCP 候補 → eager + fetchpriority="high"
+        node.properties.loading = "eager";
+        node.properties.fetchPriority = "high";
+        node.properties.decoding = "auto";
+        isFirstImage = false;
+      } else {
+        node.properties.loading = "lazy";
+        node.properties.decoding = "async";
+      }
 
       // Next.js 画像最適化（対象ホストのみ）
       if (isOptimizable(src)) {
