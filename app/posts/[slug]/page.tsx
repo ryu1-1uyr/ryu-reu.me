@@ -5,6 +5,7 @@ import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
 import TagChip from "@/app/components/TagChip";
+import EditButton from "./EditButton";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -54,7 +55,7 @@ export default async function PostPage({ params }: Props) {
           />
 
           <div className="mt-3 flex justify-end items-center gap-2">
-            {/* TODO: 1-3 で EditButton (Client Component) として復活させる */}
+            <EditButton slug={post.slug} />
             <ShareButtons title={post.title} slug={post.slug} />
           </div>
         </div>
