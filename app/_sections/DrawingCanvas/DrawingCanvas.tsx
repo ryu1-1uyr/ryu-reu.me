@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useSkyDrawings } from "@/app/contexts/SkyDrawings";
+import styles from "./DrawingCanvas.module.css";
 
 type Tool = "pen" | "eraser";
 
@@ -21,11 +22,10 @@ const PEN_COLORS = [
 
 type PenColor = (typeof PEN_COLORS)[number]["value"];
 
-// Tailwind のパージ対策で完全なクラス名を列挙する
 const FLY_ANIMATIONS = [
-  "animate-fly-to-sky-straight",
-  "animate-fly-to-sky-left",
-  "animate-fly-to-sky-right",
+  styles.flyToSkyStraight,
+  styles.flyToSkyLeft,
+  styles.flyToSkyRight,
 ] as const;
 
 function pickFlyAnimation() {
