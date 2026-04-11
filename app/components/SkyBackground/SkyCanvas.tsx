@@ -9,6 +9,7 @@ type Props = {
   phaseProgress: number;
   weatherCondition: WeatherCondition;
   skyDrawings?: SkyDrawing[];
+  targetFps?: number; // 省略時は 60fps
 };
 
 // --- 色定義 ---
@@ -901,6 +902,7 @@ export default function SkyCanvas({
   phaseProgress,
   weatherCondition,
   skyDrawings,
+  targetFps = 60,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const starsRef = useRef<Star[]>([]);
@@ -1031,29 +1033,20 @@ export default function SkyCanvas({
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
-    // 📝 こんな感じの変更をすれば意図的にFPSを落とすことができそう
-    // const TARGET_FPS = 30;
-    // const FRAME_INTERVAL = 1000 / TARGET_FPS;
-    // let lastRenderTime = startTime;
-
-    // const render = () => {
-    //   if (!running) return;
-    //   const now = performance.now();
-
-    //   // 目標フレーム間隔に達してなければスキップ
-    //   if (now - lastRenderTime < FRAME_INTERVAL) {
-    //     animId = requestAnimationFrame(render);
-    //     return;
-    //   }
-    //   lastRenderTime = now;
-
-    //   // 以下いつもの描画処理...
-    // };
+    const frameInterval = targetFps < 60 ? 1000 / targetFps : 0;
+    let lastRenderTime = startTime;
 
     const render = () => {
       if (!running) return;
 
       const now = performance.now();
+
+      // FPS 制限: 目標フレーム間隔に達してなければスキップ
+      if (frameInterval > 0 && now - lastRenderTime < frameInterval) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
+      lastRenderTime = now;
       const deltaMs = Math.min(now - prevTime, 100); // タブ復帰時のジャンプ防止
       const dt = deltaMs / (1000 / 60); // 60fps を基準とした比率
       prevTime = now;
