@@ -44,8 +44,15 @@ function nextImageUrl(src: string, width: number, quality = 75): string {
   return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=${quality}`;
 }
 
+/** LCP 画像の preload 用情報 */
+export type LcpImageHint = {
+  src: string;
+  srcSet?: string;
+  sizes?: string;
+} | null;
+
 /** img タグに lazy loading + Next.js 画像最適化を適用する rehype プラグイン */
-function rehypeOptimizeImages() {
+function rehypeOptimizeImages(lcpHintRef: { current: LcpImageHint }) {
   return (tree: Root) => {
     let isFirstImage = true;
 
@@ -79,22 +86,38 @@ function rehypeOptimizeImages() {
         node.properties.sizes = "(max-width: 640px) 100vw, 828px";
         // src はフォールバック（srcset 非対応ブラウザ用）
         node.properties.src = nextImageUrl(src, 828);
+
+        // LCP 候補の preload 情報を記録
+        if (!lcpHintRef.current) {
+          lcpHintRef.current = {
+            src: node.properties.src as string,
+            srcSet: srcset,
+            sizes: "(max-width: 640px) 100vw, 828px",
+          };
+        }
+      } else if (!lcpHintRef.current) {
+        // 最適化対象外でも最初の画像なら src だけ記録
+        lcpHintRef.current = { src };
       }
     });
   };
 }
 
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkRehype, { allowDangerousHtml: true })
-  .use(rehypeRaw)
-  .use(rehypeSanitize, schema)
-  .use(rehypeOptimizeImages)
-  .use(rehypeStringify);
+/** markdown 文字列を sanitize 済み HTML + LCP 画像ヒントに変換する（サーバー専用） */
+export async function renderMarkdown(
+  md: string
+): Promise<{ html: string; lcpImageHint: LcpImageHint }> {
+  const lcpHintRef: { current: LcpImageHint } = { current: null };
 
-/** markdown 文字列を sanitize 済み HTML に変換する（サーバー専用） */
-export async function renderMarkdown(md: string): Promise<string> {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeRaw)
+    .use(rehypeSanitize, schema)
+    .use(() => rehypeOptimizeImages(lcpHintRef))
+    .use(rehypeStringify);
+
   const result = await processor.process(md);
-  return String(result);
+  return { html: String(result), lcpImageHint: lcpHintRef.current };
 }

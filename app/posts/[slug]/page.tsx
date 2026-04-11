@@ -25,10 +25,22 @@ export default async function PostPage({ params }: Props) {
   }
 
   const tags = post.tags.map((pt) => pt.tag.name);
-  const html = await renderMarkdown(post.content);
+  const { html, lcpImageHint } = await renderMarkdown(post.content);
 
   return (
     <PageTransition>
+      {/* LCP 画像を <head> で preload — React 19 が自動で巻き上げる */}
+      {lcpImageHint && (
+        <link
+          rel="preload"
+          as="image"
+          href={lcpImageHint.src}
+          // @ts-expect-error -- React 19 は imagesrcset/imagesizes をサポートするが型定義が未追従
+          imagesrcset={lcpImageHint.srcSet}
+          imagesizes={lcpImageHint.sizes}
+          fetchpriority="high"
+        />
+      )}
       <main className="bg-elements-background/80 backdrop-blur-sm min-h-screen px-6 py-12">
         <div className="max-w-3xl mx-auto">
           <BackButton />
