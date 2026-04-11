@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
 import { prisma } from "@/lib/prisma";
+import { renderMarkdown } from "@/lib/markdown";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
@@ -25,6 +23,7 @@ export default async function PostPage({ params }: Props) {
   }
 
   const tags = post.tags.map((pt) => pt.tag.name);
+  const html = await renderMarkdown(post.content);
 
   return (
     <PageTransition>
@@ -49,14 +48,10 @@ export default async function PostPage({ params }: Props) {
               更新日: {post.updatedAt.toLocaleDateString("ja-JP")}
             </p>
           </div>
-          <article className="bg-elements-headline rounded-lg p-8 prose prose-neutral max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeRaw]}
-            >
-              {post.content}
-            </ReactMarkdown>
-          </article>
+          <article
+            className="bg-elements-headline rounded-lg p-8 prose prose-neutral max-w-none"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
 
           <div className="mt-3 flex justify-end items-center gap-2">
             {/* TODO: 1-3 で EditButton (Client Component) として復活させる */}
