@@ -115,6 +115,13 @@ function rehypeCollectImages(
         node.properties.srcSet = srcset;
         node.properties.sizes = "(max-width: 640px) 100vw, 828px";
         node.properties.src = nextImageUrl(src, 828);
+        // CLS 防止: 元画像サイズ (282px 等) で場所を確保すると
+        // レスポンシブ表示サイズ (container 幅) との差で CLS が発生する。
+        // .responsive-img で width:100%;height:auto を当てて container 幅で確保。
+        node.properties.className = [
+          ...((node.properties.className as string[]) ?? []),
+          "responsive-img",
+        ];
 
         if (!lcpHintRef.current) {
           lcpHintRef.current = {
