@@ -7,3 +7,9 @@
     text-wrap: balance;
   }
 }
+
+/* Next.js 画像最適化を通す img の CLS 防止 */
+.responsive-img {
+  width: 100%;
+  height: auto;
+}
