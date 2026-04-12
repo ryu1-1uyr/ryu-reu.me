@@ -9,6 +9,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 import type { Root, Element } from "hast";
 import { visit } from "unist-util-visit";
+import probe from "probe-image-size";
 
 // rehype-sanitize は hast (HTML AST) のプロパティ名を使う
 // HTML の class → hast では className、data-* → data* で一括許可
@@ -51,8 +52,37 @@ export type LcpImageHint = {
   sizes?: string;
 } | null;
 
-/** img タグに lazy loading + Next.js 画像最適化を適用する rehype プラグイン */
-function rehypeOptimizeImages(lcpHintRef: { current: LcpImageHint }) {
+// 画像サイズのインメモリキャッシュ（同一プロセス内で使い回す）
+const sizeCache = new Map<string, { width: number; height: number }>();
+
+/** リモート画像の実サイズを取得する（キャッシュ付き） */
+async function probeImageSize(
+  src: string
+): Promise<{ width: number; height: number } | null> {
+  if (sizeCache.has(src)) return sizeCache.get(src)!;
+  try {
+    const result = await probe(src, { timeout: 5000 });
+    const size = { width: result.width, height: result.height };
+    sizeCache.set(src, size);
+    return size;
+  } catch {
+    // タイムアウトやネットワークエラー → フォールバック
+    return null;
+  }
+}
+
+/** img 要素の情報を一旦収集するための型 */
+type ImageNodeInfo = {
+  node: Element;
+  originalSrc: string;
+  isFirst: boolean;
+};
+
+/** img タグに lazy loading + Next.js 画像最適化を適用する rehype プラグイン（同期パス） */
+function rehypeCollectImages(
+  lcpHintRef: { current: LcpImageHint },
+  collectedImages: ImageNodeInfo[]
+) {
   return (tree: Root) => {
     let isFirstImage = true;
 
@@ -62,16 +92,16 @@ function rehypeOptimizeImages(lcpHintRef: { current: LcpImageHint }) {
       const src = node.properties?.src;
       if (typeof src !== "string" || !src) return;
 
-      // CLS 防止用のデフォルトサイズ
-      if (!node.properties.width) node.properties.width = 828;
-      if (!node.properties.height) node.properties.height = 466;
+      const isFirst = isFirstImage;
+      if (isFirstImage) isFirstImage = false;
 
-      if (isFirstImage) {
-        // 最初の画像は LCP 候補 → eager + fetchpriority="high"
+      // 画像情報を収集（サイズは後で非同期に解決する）
+      collectedImages.push({ node, originalSrc: src, isFirst });
+
+      if (isFirst) {
         node.properties.loading = "eager";
         node.properties.fetchPriority = "high";
         node.properties.decoding = "auto";
-        isFirstImage = false;
       } else {
         node.properties.loading = "lazy";
         node.properties.decoding = "async";
@@ -84,10 +114,8 @@ function rehypeOptimizeImages(lcpHintRef: { current: LcpImageHint }) {
           .join(", ");
         node.properties.srcSet = srcset;
         node.properties.sizes = "(max-width: 640px) 100vw, 828px";
-        // src はフォールバック（srcset 非対応ブラウザ用）
         node.properties.src = nextImageUrl(src, 828);
 
-        // LCP 候補の preload 情報を記録
         if (!lcpHintRef.current) {
           lcpHintRef.current = {
             src: node.properties.src as string,
@@ -96,11 +124,30 @@ function rehypeOptimizeImages(lcpHintRef: { current: LcpImageHint }) {
           };
         }
       } else if (!lcpHintRef.current) {
-        // 最適化対象外でも最初の画像なら src だけ記録
         lcpHintRef.current = { src };
       }
     });
   };
+}
+
+/** 収集した画像に実サイズを非同期でセットする */
+async function resolveImageSizes(images: ImageNodeInfo[]): Promise<void> {
+  const FALLBACK_WIDTH = 828;
+  const FALLBACK_HEIGHT = 466;
+
+  await Promise.all(
+    images.map(async ({ node, originalSrc }) => {
+      const size = await probeImageSize(originalSrc);
+      if (size) {
+        node.properties.width = size.width;
+        node.properties.height = size.height;
+      } else {
+        // probe 失敗時のみフォールバック
+        if (!node.properties.width) node.properties.width = FALLBACK_WIDTH;
+        if (!node.properties.height) node.properties.height = FALLBACK_HEIGHT;
+      }
+    })
+  );
 }
 
 /** markdown 文字列を sanitize 済み HTML + LCP 画像ヒントに変換する（サーバー専用） */
@@ -108,6 +155,7 @@ export async function renderMarkdown(
   md: string
 ): Promise<{ html: string; lcpImageHint: LcpImageHint }> {
   const lcpHintRef: { current: LcpImageHint } = { current: null };
+  const collectedImages: ImageNodeInfo[] = [];
 
   const processor = unified()
     .use(remarkParse)
@@ -115,9 +163,18 @@ export async function renderMarkdown(
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
     .use(rehypeSanitize, schema)
-    .use(() => rehypeOptimizeImages(lcpHintRef))
+    .use(() => rehypeCollectImages(lcpHintRef, collectedImages))
     .use(rehypeStringify);
 
-  const result = await processor.process(md);
-  return { html: String(result), lcpImageHint: lcpHintRef.current };
+  // parse → run で AST 変換まで実行（stringify はまだ）
+  const tree = processor.parse(md);
+  const hast = await processor.run(tree);
+
+  // 収集した画像の実サイズを並列で取得してから stringify
+  if (collectedImages.length > 0) {
+    await resolveImageSizes(collectedImages);
+  }
+
+  const html = processor.stringify(hast);
+  return { html: String(html), lcpImageHint: lcpHintRef.current };
 }
