@@ -76,6 +76,7 @@ type ImageNodeInfo = {
   node: Element;
   originalSrc: string;
   isFirst: boolean;
+  optimizable: boolean;
 };
 
 /** img タグに lazy loading + Next.js 画像最適化を適用する rehype プラグイン（同期パス） */
@@ -95,8 +96,10 @@ function rehypeCollectImages(
       const isFirst = isFirstImage;
       if (isFirstImage) isFirstImage = false;
 
+      const optimizable = isOptimizable(src);
+
       // 画像情報を収集（サイズは後で非同期に解決する）
-      collectedImages.push({ node, originalSrc: src, isFirst });
+      collectedImages.push({ node, originalSrc: src, isFirst, optimizable });
 
       if (isFirst) {
         node.properties.loading = "eager";
@@ -108,7 +111,7 @@ function rehypeCollectImages(
       }
 
       // Next.js 画像最適化（対象ホストのみ）
-      if (isOptimizable(src)) {
+      if (optimizable) {
         const srcset = RESPONSIVE_WIDTHS
           .map((w) => `${nextImageUrl(src, w)} ${w}w`)
           .join(", ");
@@ -139,17 +142,27 @@ function rehypeCollectImages(
 
 /** 収集した画像に実サイズを非同期でセットする */
 async function resolveImageSizes(images: ImageNodeInfo[]): Promise<void> {
+  // optimizable 画像は CSS width:100% で表示されるため、
+  // HTML の width/height を表示想定幅にスケールしてブラウザに正しい
+  // アスペクト比で場所を確保させる（CLS 防止）
+  const DISPLAY_WIDTH = 828;
   const FALLBACK_WIDTH = 828;
   const FALLBACK_HEIGHT = 466;
 
   await Promise.all(
-    images.map(async ({ node, originalSrc }) => {
+    images.map(async ({ node, originalSrc, optimizable }) => {
       const size = await probeImageSize(originalSrc);
       if (size) {
-        node.properties.width = size.width;
-        node.properties.height = size.height;
+        if (optimizable) {
+          // 表示幅に合わせてスケール — アスペクト比は維持
+          const scale = DISPLAY_WIDTH / size.width;
+          node.properties.width = DISPLAY_WIDTH;
+          node.properties.height = Math.round(size.height * scale);
+        } else {
+          node.properties.width = size.width;
+          node.properties.height = size.height;
+        }
       } else {
-        // probe 失敗時のみフォールバック
         if (!node.properties.width) node.properties.width = FALLBACK_WIDTH;
         if (!node.properties.height) node.properties.height = FALLBACK_HEIGHT;
       }
