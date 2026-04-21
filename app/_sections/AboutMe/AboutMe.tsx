@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { cookies } from "next/headers";
-import IconImage from "@/public/me.png";
 import CardList from "@/app/components/CardList";
 import { profiles } from "./profiles";
 import { resolveProfileView } from "./resolveProfileView";
@@ -20,7 +19,7 @@ export default async function AboutMe({ view }: Props) {
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 md:w-20 md:h-20 shrink-0">
           <Image
-            src={IconImage.src}
+            src={profile.icon.src}
             alt="User Icon"
             width={80}
             height={80}

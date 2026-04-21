@@ -1,9 +1,11 @@
 import { FaXTwitter, FaYoutube, FaGithub, FaDiscord } from "react-icons/fa6";
 import { SiPixiv, SiSteam } from "react-icons/si";
+import IconImage from "@/public/me.png";
 import type { Profile } from "./types";
 
 export const creatorProfile: Profile = {
   displayName: "ReU",
+  icon: IconImage,
   bio: [
     "お絵描きをしたり曲やソフトウェアを作ったりします。",
     "りゆう とか れう って呼んでください。",

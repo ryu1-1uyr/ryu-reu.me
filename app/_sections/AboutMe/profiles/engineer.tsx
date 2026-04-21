@@ -1,20 +1,21 @@
 import { FaXTwitter, FaGithub } from "react-icons/fa6";
+import IconImage from "@/public/ryu.jpg";
 import type { Profile } from "./types";
 
-// TODO: 文言・interests・links は後で差し替え予定（ダミー）
 export const engineerProfile: Profile = {
   displayName: "ryu",
+  icon: IconImage,
   bio: [
-    "ソフトウェアエンジニアです。（ダミー：あとで差し替え）",
+    "ソフトウェアエンジニアやってます。",
     "Web フロントエンド中心に作ってます。",
     "ここには技術メモや作ったものの話を置いてます。",
   ],
   interests: [
-    { children: "💻", label: "開発" },
-    { children: "🧪", label: "実験" },
-    { children: "📚", label: "読書" },
-    { children: "☕", label: "コーヒー" },
     { children: "🎮", label: "ゲーム" },
+    { children: "💻", label: "開発" },
+    { children: "🎧", label: "音楽" },
+    { children: "🎹", label: "作曲" },
+    { children: "🎨", label: "お絵描き" },
   ],
   links: [
     {
@@ -22,6 +23,6 @@ export const engineerProfile: Profile = {
       label: "GitHub",
       url: "https://github.com/ryu1-1uyr",
     },
-    { children: <FaXTwitter />, label: "X", url: "https://x.com/reu_00_00" },
+    { children: <FaXTwitter />, label: "X", url: "https://x.com/Ryu1__1uyR" },
   ],
 };

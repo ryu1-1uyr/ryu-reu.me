@@ -4,7 +4,6 @@ import type { ProfileView } from "./profiles/types";
 const VALID_VIEWS: readonly ProfileView[] = ["creator", "engineer"];
 const DEFAULT_VIEW: ProfileView = "creator";
 
-// クエリで使える別名 (?as=dev → engineer)
 const QUERY_ALIAS: Record<string, ProfileView> = {
   creator: "creator",
   create: "creator",
@@ -14,11 +13,14 @@ const QUERY_ALIAS: Record<string, ProfileView> = {
   tech: "engineer",
 };
 
-function normalizeViewInput(value: string | null | undefined): ProfileView | null {
+function normalizeViewInput(
+  value: string | null | undefined
+): ProfileView | null {
   if (!value) return null;
   const key = value.toLowerCase();
   if (QUERY_ALIAS[key]) return QUERY_ALIAS[key];
-  if ((VALID_VIEWS as readonly string[]).includes(key)) return key as ProfileView;
+  if ((VALID_VIEWS as readonly string[]).includes(key))
+    return key as ProfileView;
   return null;
 }
 
@@ -29,7 +31,9 @@ export type ResolveProfileViewInput = {
 };
 
 // 優先順位: query → cookie → referer → デフォルト
-export function resolveProfileView(input: ResolveProfileViewInput): ProfileView {
+export function resolveProfileView(
+  input: ResolveProfileViewInput
+): ProfileView {
   const queryView = normalizeViewInput(input.query);
   if (queryView) return queryView;
 

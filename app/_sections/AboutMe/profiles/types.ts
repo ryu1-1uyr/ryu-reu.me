@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { StaticImageData } from "next/image";
 
 export type ProfileView = "creator" | "engineer";
 
@@ -15,6 +16,7 @@ export type LinkItem = {
 
 export type Profile = {
   displayName: string;
+  icon: StaticImageData;
   bio: string[];
   interests: InterestItem[];
   links: LinkItem[];
