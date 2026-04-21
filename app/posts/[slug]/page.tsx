@@ -5,6 +5,7 @@ import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
 import TagChip from "@/app/components/TagChip";
+import ProfileViewHintWriter from "@/app/_sections/AboutMe/ProfileViewHintWriter";
 import EditButton from "./EditButton";
 import TwitterEmbed from "./TwitterEmbed";
 
@@ -29,6 +30,8 @@ export default async function PostPage({ params }: Props) {
 
   return (
     <PageTransition>
+      {/* 初訪問が技術タグ記事なら profile_view=engineer を刷り込む（Cookie 未設定時のみ） */}
+      <ProfileViewHintWriter tags={tags} />
       {/* LCP 画像を <head> で preload — React 19 が自動で巻き上げる */}
       {lcpImageHint && (
         <link
