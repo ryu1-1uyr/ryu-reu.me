@@ -5,11 +5,17 @@ import WeatherControl from "@/app/_sections/WeatherControl";
 import DrawingCanvas from "@/app/_sections/DrawingCanvas";
 import Desktop from "@/app/_sections/Desktop";
 
-export default function Home() {
+type HomeProps = {
+  searchParams: Promise<{ as?: string }>;
+};
+
+export default async function Home({ searchParams }: HomeProps) {
+  const params = await searchParams;
+
   return (
     <Desktop
       contents={{
-        "about-me": <AboutMe />,
+        "about-me": <AboutMe view={params.as} />,
         "recent-posts": (
           <div className="p-6 space-y-4">
             <h2 className="text-sm font-semibold text-elements-headline tracking-widest border-l-2 border-elements-button pl-2">

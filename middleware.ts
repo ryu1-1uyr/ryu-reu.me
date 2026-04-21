@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
+import { resolveProfileView } from "@/app/_sections/AboutMe/resolveProfileView";
+
+const PROFILE_COOKIE = "profile_view";
+const PROFILE_COOKIE_MAX_AGE = 60 * 60 * 24 * 180; // 180日
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
@@ -25,9 +29,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(uploadUrl);
   }
 
+  // プロフィール出し分け判定（ホームのみ）
+  if (pathname === "/") {
+    const queryAs = request.nextUrl.searchParams.get("as");
+    const cookieAs = request.cookies.get(PROFILE_COOKIE)?.value;
+    const referer = request.headers.get("referer");
+
+    const resolved = resolveProfileView({
+      query: queryAs,
+      cookie: cookieAs,
+      referer,
+    });
+
+    if (resolved !== cookieAs) {
+      response.cookies.set(PROFILE_COOKIE, resolved, {
+        maxAge: PROFILE_COOKIE_MAX_AGE,
+        sameSite: "lax",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+      });
+    }
+  }
+
   return response;
 }
 
 export const config = {
-  matcher: ["/upload/:path*", "/update/:path*", "/login"],
+  matcher: ["/", "/upload/:path*", "/update/:path*", "/login"],
 };
