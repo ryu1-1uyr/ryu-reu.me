@@ -7,9 +7,16 @@ import { OgCard } from "@/app/components/OgCard";
 
 export const runtime = "nodejs";
 
+type AvatarKind = "creator" | "engineer";
+
+const AVATAR_FILES: Record<AvatarKind, { file: string; mime: string }> = {
+  creator: { file: "me.png", mime: "image/png" },
+  engineer: { file: "ryu.jpg", mime: "image/jpeg" },
+};
+
 // モジュールスコープでキャッシュ（プロセス生存中は再読み込みしない）
 let fontCache: ArrayBuffer | null = null;
-let avatarCache: string | null = null;
+const avatarCache = new Map<AvatarKind, string>();
 
 async function getFontData(): Promise<ArrayBuffer> {
   if (fontCache) return fontCache;
@@ -19,12 +26,19 @@ async function getFontData(): Promise<ArrayBuffer> {
   return fontCache;
 }
 
-async function getAvatarBase64(): Promise<string> {
-  if (avatarCache) return avatarCache;
-  const avatarPath = path.join(process.cwd(), "public/me.png");
+async function getAvatarBase64(kind: AvatarKind): Promise<string> {
+  const cached = avatarCache.get(kind);
+  if (cached) return cached;
+  const { file, mime } = AVATAR_FILES[kind];
+  const avatarPath = path.join(process.cwd(), `public/${file}`);
   const buf = await readFile(avatarPath);
-  avatarCache = `data:image/png;base64,${buf.toString("base64")}`;
-  return avatarCache;
+  const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+  avatarCache.set(kind, dataUrl);
+  return dataUrl;
+}
+
+function parseAvatarParam(value: string | null): AvatarKind {
+  return value === "engineer" ? "engineer" : "creator";
 }
 
 // 記事本文から最初の画像 URL を抽出
@@ -65,6 +79,7 @@ export async function GET(request: NextRequest) {
   const titleParam = searchParams.get("title");
   const descParam = searchParams.get("desc");
   const slugParam = searchParams.get("slug");
+  const avatarKind = parseAvatarParam(searchParams.get("avatar"));
 
   let title = "りゆうの実験場";
   let description: string | undefined;
@@ -86,7 +101,7 @@ export async function GET(request: NextRequest) {
 
   const [fontData, avatarUrl] = await Promise.all([
     getFontData(),
-    getAvatarBase64(),
+    getAvatarBase64(avatarKind),
   ]);
 
   const response = new ImageResponse(
