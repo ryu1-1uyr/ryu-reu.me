@@ -28,8 +28,44 @@ export default async function PostPage({ params }: Props) {
   const tags = post.tags.map((pt) => pt.tag.name);
   const { html, lcpImageHint } = await renderMarkdown(post.content);
 
+  const description = post.content
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/[#*`~>\-|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+  const isEngineerPost = tags.includes("技術");
+  const siteUrl = "https://www.ryu-reu.me";
+  const articleUrl = `${siteUrl}/posts/${post.slug}`;
+  const ogImageUrl = `${siteUrl}/api/og?title=${encodeURIComponent(post.title)}&desc=${encodeURIComponent(description)}${isEngineerPost ? "&avatar=engineer" : ""}`;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description,
+    image: [ogImageUrl],
+    datePublished: post.createdAt.toISOString(),
+    dateModified: post.updatedAt.toISOString(),
+    author: { "@type": "Person", name: "ReU" },
+    publisher: {
+      "@type": "Organization",
+      name: "りゆうの実験場",
+      logo: { "@type": "ImageObject", url: `${siteUrl}/me.png` },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": articleUrl },
+    url: articleUrl,
+    keywords: tags,
+  };
+
   return (
     <PageTransition>
+      {/* JSON-LD 構造化データ (BlogPosting) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* 初訪問が技術タグ記事なら profile_view=engineer を刷り込む（Cookie 未設定時のみ） */}
       <ProfileViewHintWriter tags={tags} />
       {/* LCP 画像を <head> で preload — React 19 が自動で巻き上げる */}
