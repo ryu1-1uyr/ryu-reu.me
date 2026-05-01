@@ -24,9 +24,6 @@ export const metadata: Metadata = {
     template: `%s | ${siteName}`,
   },
   description: siteDescription,
-  icons: {
-    icon: IconImage.src,
-  },
   openGraph: {
     type: "website",
     siteName,
