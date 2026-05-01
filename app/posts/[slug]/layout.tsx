@@ -36,6 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     metadataBase: new URL("https://www.ryu-reu.me"),
     title: post.title,
     description,
+    alternates: { canonical: `/posts/${post.slug}` },
     keywords: [
       "りゆうの実験場",
       "reu-ryu",

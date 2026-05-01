@@ -9,6 +9,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "記事一覧",
   description: "りゆうのブログの記事一覧",
+  alternates: { canonical: "/blog" },
   openGraph: {
     title: "記事一覧 | りゆうの実験場",
     description: "りゆうの実験場のブログ記事一覧",
@@ -61,8 +62,27 @@ export default async function BlogPage({
     tags: post.tags.map((pt) => pt.tag.name),
   }));
 
+  const siteUrl = "https://www.ryu-reu.me";
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "ホーム", item: siteUrl },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: tag ? `記事一覧 - ${tag}` : "記事一覧",
+        item: tag ? `${siteUrl}/blog?tag=${encodeURIComponent(tag)}` : `${siteUrl}/blog`,
+      },
+    ],
+  };
+
   return (
     <PageTransition>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <main className="bg-elements-background/80 backdrop-blur-sm min-h-screen px-6 py-12">
         <div className="max-w-2xl mx-auto">
           <BackButton />
