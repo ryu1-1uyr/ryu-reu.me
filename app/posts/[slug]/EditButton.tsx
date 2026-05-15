@@ -9,8 +9,11 @@ export default function EditButton({ slug }: { slug: string }) {
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setIsLoggedIn(!!user);
+    // getUser() だとサーバーに認証チェック API を投げてしまうので、
+    // ネットワーク往復不要の getSession() で十分。
+    // 実際の操作（編集画面/API）は別途サーバー側で getUser() 検証される。
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
     });
   }, []);
 
