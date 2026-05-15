@@ -18,11 +18,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { title, content, published, tags } = body as {
+  const { title, content, published, tags, ogImage } = body as {
     title?: string;
     content?: string;
     published?: boolean;
     tags?: string[];
+    ogImage?: string | null;
   };
 
   if (!title || !content) {
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
       title,
       slug,
       content,
+      ogImage: ogImage ?? null,
       authorId: prismaUser.id,
       published: published !== false,
       tags: {

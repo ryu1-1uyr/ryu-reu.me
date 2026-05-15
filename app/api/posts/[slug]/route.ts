@@ -29,6 +29,7 @@ export async function GET(
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     content: post.content,
+    ogImage: post.ogImage,
     tags: post.tags.map((pt) => pt.tag.name),
   });
 }
@@ -67,11 +68,12 @@ export async function PUT(
   }
 
   const body = await request.json();
-  const { title, content, published, tags } = body as {
+  const { title, content, published, tags, ogImage } = body as {
     title?: string;
     content?: string;
     published?: boolean;
     tags?: string[];
+    ogImage?: string | null;
   };
 
   if (!title || !content) {
@@ -95,6 +97,7 @@ export async function PUT(
       data: {
         title,
         content,
+        ogImage: ogImage ?? null,
         published: published !== false,
         tags: {
           create: normalizedTags.map((name) => ({
