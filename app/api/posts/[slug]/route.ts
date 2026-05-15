@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { checkCsrf } from "@/lib/csrf";
@@ -130,6 +131,14 @@ export async function PUT(
       // 失敗は無視（DB 更新は既に成功してる）
     }
   }
+
+  // キャッシュ破棄:
+  // - トップの「最近の戯言」(tag: posts)
+  // - 該当記事の詳細ページ（ISR）
+  // - /blog 一覧（ISR）
+  revalidateTag("posts");
+  revalidatePath(`/posts/${updated.slug}`);
+  revalidatePath("/blog");
 
   return NextResponse.json({ id: updated.id, slug: updated.slug });
 }

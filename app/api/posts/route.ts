@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { checkCsrf } from "@/lib/csrf";
@@ -73,6 +74,10 @@ export async function POST(request: NextRequest) {
       },
     },
   });
+
+  // キャッシュ破棄: トップの「最近の戯言」と /blog 一覧を更新
+  revalidateTag("posts");
+  revalidatePath("/blog");
 
   return NextResponse.json({ id: post.id, slug: post.slug });
 }
