@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
   });
 
   // キャッシュ破棄: トップの「最近の戯言」と /blog 一覧を更新
-  revalidateTag("posts");
+  // Next.js 16+ では revalidateTag は第二引数に cacheLife profile が必須
+  revalidateTag("posts", "max");
   revalidatePath("/blog");
 
   return NextResponse.json({ id: post.id, slug: post.slug });

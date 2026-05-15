@@ -136,7 +136,8 @@ export async function PUT(
   // - トップの「最近の戯言」(tag: posts)
   // - 該当記事の詳細ページ（ISR）
   // - /blog 一覧（ISR）
-  revalidateTag("posts");
+  // Next.js 16+ では revalidateTag は第二引数に cacheLife profile が必須
+  revalidateTag("posts", "max");
   revalidatePath(`/posts/${updated.slug}`);
   revalidatePath("/blog");
 
