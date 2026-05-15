@@ -9,6 +9,9 @@ import ProfileViewHintWriter from "@/app/_sections/AboutMe/ProfileViewHintWriter
 import EditButton from "./EditButton";
 import TwitterEmbed from "./TwitterEmbed";
 
+// ISR: 1日。記事更新時は revalidatePath(`/posts/${slug}`) で明示破棄想定。
+export const revalidate = 86400;
+
 type Props = { params: Promise<{ slug: string }> };
 
 export default async function PostPage({ params }: Props) {

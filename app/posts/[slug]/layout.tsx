@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 
+// ISR: 1日。記事更新時は revalidatePath(`/posts/${slug}`) で明示破棄想定。
+export const revalidate = 86400;
+
 type Props = {
   params: Promise<{ slug: string }>;
   children: React.ReactNode;
