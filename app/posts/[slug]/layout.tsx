@@ -2,9 +2,6 @@ import type { Metadata } from "next";
 import { getPostBySlug } from "@/lib/queries";
 
 // ISR: 1日。記事更新時は revalidatePath(`/posts/${slug}`) で明示破棄想定。
-// Next.js 16 で params の await が dynamic 扱いされてるのを明示的に static 強制で打ち消す。
-// （Tier 2 で 'use cache' に置き換える想定の暫定対応）
-export const dynamic = "force-static";
 export const revalidate = 86400;
 
 type Props = {
