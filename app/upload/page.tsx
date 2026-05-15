@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, DragEvent } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import TagInput from "@/app/components/TagInput";
+import OgImagePicker, { extractImageUrls } from "@/app/components/OgImagePicker";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -26,6 +27,7 @@ function loadDraft() {
       content: string;
       published: boolean;
       tags?: string[];
+      ogImage?: string | null;
       savedAt: string;
     };
   } catch {
@@ -39,6 +41,7 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [published, setPublished] = useState(true);
   const [tags, setTags] = useState<string[]>([]);
+  const [ogImage, setOgImage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
 
@@ -50,6 +53,7 @@ export default function UploadPage() {
       setContent(draft.content);
       setPublished(draft.published);
       setTags(draft.tags ?? []);
+      setOgImage(draft.ogImage ?? null);
       setDraftRestoredAt(draft.savedAt);
     }
   }, []);
@@ -101,12 +105,16 @@ export default function UploadPage() {
           content,
           published,
           tags,
+          ogImage,
           savedAt: new Date().toISOString(),
         })
       );
     }, 1000);
     return () => clearTimeout(timer);
-  }, [title, content, published, tags]);
+  }, [title, content, published, tags, ogImage]);
+
+  // 本文から画像 URL を抽出（記事内画像から OG 選択用）
+  const contentImageUrls = useMemo(() => extractImageUrls(content), [content]);
 
   const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
 
@@ -231,7 +239,7 @@ export default function UploadPage() {
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, published, tags }),
+        body: JSON.stringify({ title, content, published, tags, ogImage }),
       });
 
       if (handleUnauthorized(res)) return;
@@ -274,6 +282,7 @@ export default function UploadPage() {
                 setContent("");
                 setPublished(true);
                 setTags([]);
+                setOgImage(null);
                 setMessage(null);
                 window.location.reload();
               }}
@@ -304,6 +313,15 @@ export default function UploadPage() {
             タグ
           </label>
           <TagInput value={tags} onChange={setTags} />
+        </div>
+
+        {/* OGP 画像 */}
+        <div className="mb-6">
+          <OgImagePicker
+            value={ogImage}
+            onChange={setOgImage}
+            contentImageUrls={contentImageUrls}
+          />
         </div>
 
         {/* エディタ + プレビュー */}
