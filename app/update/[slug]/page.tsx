@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, DragEvent } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, DragEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import TagInput from "@/app/components/TagInput";
+import OgImagePicker, { extractImageUrls } from "@/app/components/OgImagePicker";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -25,6 +26,7 @@ export default function UpdatePage() {
   const [uploading, setUploading] = useState(false);
   const [published, setPublished] = useState(true);
   const [tags, setTags] = useState<string[]>([]);
+  const [ogImage, setOgImage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{
@@ -54,12 +56,16 @@ export default function UpdatePage() {
         setContent(data.content);
         setPublished(data.published);
         setTags(data.tags ?? []);
+        setOgImage(data.ogImage ?? null);
       })
       .catch(() => {
         setMessage({ type: "error", text: "記事の取得に失敗したよ" });
       })
       .finally(() => setLoading(false));
   }, [slug, router]);
+
+  // 本文から画像 URL を抽出（記事内画像から OG 選択用）
+  const contentImageUrls = useMemo(() => extractImageUrls(content), [content]);
 
   const handleEditorScroll = useCallback(() => {
     if (scrollSourceRef.current === "preview") return;
@@ -210,7 +216,7 @@ export default function UpdatePage() {
       const res = await fetch(`/api/posts/${encodeURIComponent(slug)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, published, tags }),
+        body: JSON.stringify({ title, content, published, tags, ogImage }),
       });
 
       if (handleUnauthorized(res)) return;
@@ -263,6 +269,15 @@ export default function UpdatePage() {
             タグ
           </label>
           <TagInput value={tags} onChange={setTags} />
+        </div>
+
+        {/* OGP 画像 */}
+        <div className="mb-6">
+          <OgImagePicker
+            value={ogImage}
+            onChange={setOgImage}
+            contentImageUrls={contentImageUrls}
+          />
         </div>
 
         {/* エディタ + プレビュー */}
