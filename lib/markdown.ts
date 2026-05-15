@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -197,4 +198,29 @@ export async function renderMarkdown(
 
   const html = processor.stringify(hast);
   return { html: String(html), lcpImageHint: lcpHintRef.current };
+}
+
+/**
+ * 記事ごとに永続キャッシュ付きで Markdown をレンダリングする。
+ *
+ * Cache key には slug と updatedAt(ISO) が含まれるので、記事更新時は自動で
+ * 新しいキーになり再計算される（古いキーのキャッシュは放置）。
+ * tag "markdown" を付けてあるので、必要なら revalidateTag("markdown") で全破棄可能。
+ *
+ * - 軽量パスなら remark/rehype のパース・シリアライズをスキップ
+ * - 重いパス（probe-image-size の HTTP 往復）も完全に省略
+ */
+const renderMarkdownCachedInner = unstable_cache(
+  async (_slug: string, _updatedAtIso: string, md: string) =>
+    renderMarkdown(md),
+  ["render-markdown"],
+  { revalidate: false, tags: ["markdown"] }
+);
+
+export function renderMarkdownCached(
+  slug: string,
+  updatedAt: Date,
+  md: string
+) {
+  return renderMarkdownCachedInner(slug, updatedAt.toISOString(), md);
 }

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getPostBySlug } from "@/lib/queries";
-import { renderMarkdown } from "@/lib/markdown";
+import { renderMarkdownCached } from "@/lib/markdown";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
@@ -26,7 +26,11 @@ export default async function PostPage({ params }: Props) {
   }
 
   const tags = post.tags.map((pt) => pt.tag.name);
-  const { html, lcpImageHint } = await renderMarkdown(post.content);
+  const { html, lcpImageHint } = await renderMarkdownCached(
+    post.slug,
+    post.updatedAt,
+    post.content
+  );
 
   const description = post.content
     .replace(/!\[.*?\]\(.*?\)/g, "")
