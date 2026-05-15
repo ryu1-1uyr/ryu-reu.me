@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getPostBySlug } from "@/lib/queries";
+import { getPostBySlug, getAllPublishedSlugs } from "@/lib/queries";
 import { renderMarkdownCached } from "@/lib/markdown";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
@@ -11,6 +11,15 @@ import TwitterEmbed from "./TwitterEmbed";
 
 // ISR: 1日。記事更新時は revalidatePath(`/posts/${slug}`) で明示破棄想定。
 export const revalidate = 86400;
+
+// ビルド時に published 全記事を SSG。
+// Next.js 16 で params await が暗黙 dynamic 化する挙動を、generateStaticParams で
+// 明示的に static 生成対象と宣言することで打ち消す狙い。
+// dynamicParams = true (デフォルト) なので、未生成の slug は初回アクセス時に都度生成される。
+export async function generateStaticParams() {
+  const slugs = await getAllPublishedSlugs();
+  return slugs.map((slug) => ({ slug }));
+}
 
 type Props = { params: Promise<{ slug: string }> };
 
