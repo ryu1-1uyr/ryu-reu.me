@@ -25,6 +25,7 @@ model Post {
   title     String
   slug      String   @unique // URLになるため、最初から入れておくのが吉
   content   String   @db.Text
+  ogImage   String?  // 手動指定された OGP 画像 URL。null なら自動生成にフォールバック
   published Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

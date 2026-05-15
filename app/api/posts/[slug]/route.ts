@@ -3,6 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { checkCsrf } from "@/lib/csrf";
 
+const BUCKET = "blog-images";
+
+// Supabase Storage の public URL から bucket 内パスを抽出
+function extractStoragePath(url: string | null): string | null {
+  if (!url) return null;
+  const prefix = `/storage/v1/object/public/${BUCKET}/`;
+  const idx = url.indexOf(prefix);
+  if (idx === -1) return null;
+  return url.slice(idx + prefix.length);
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -29,6 +40,7 @@ export async function GET(
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     content: post.content,
+    ogImage: post.ogImage,
     tags: post.tags.map((pt) => pt.tag.name),
   });
 }
@@ -67,11 +79,12 @@ export async function PUT(
   }
 
   const body = await request.json();
-  const { title, content, published, tags } = body as {
+  const { title, content, published, tags, ogImage } = body as {
     title?: string;
     content?: string;
     published?: boolean;
     tags?: string[];
+    ogImage?: string | null;
   };
 
   if (!title || !content) {
@@ -87,6 +100,9 @@ export async function PUT(
     : [];
 
   // 既存タグを一旦全削除して再作成
+  const newOgImage = ogImage ?? null;
+  const oldOgImage = post.ogImage;
+
   const updated = await prisma.$transaction(async (tx) => {
     await tx.postTag.deleteMany({ where: { postId: post.id } });
 
@@ -95,6 +111,7 @@ export async function PUT(
       data: {
         title,
         content,
+        ogImage: newOgImage,
         published: published !== false,
         tags: {
           create: normalizedTags.map((name) => ({
@@ -104,6 +121,15 @@ export async function PUT(
       },
     });
   });
+
+  // 古い OG 画像が変更されてて、かつ og/ 配下なら Storage から削除（ベストエフォート）
+  if (oldOgImage && oldOgImage !== newOgImage) {
+    const oldPath = extractStoragePath(oldOgImage);
+    if (oldPath && oldPath.startsWith("og/")) {
+      await supabase.storage.from(BUCKET).remove([oldPath]);
+      // 失敗は無視（DB 更新は既に成功してる）
+    }
+  }
 
   return NextResponse.json({ id: updated.id, slug: updated.slug });
 }
