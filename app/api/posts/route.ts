@@ -80,5 +80,16 @@ export async function POST(request: NextRequest) {
   revalidateTag("posts", "max");
   revalidatePath("/blog");
 
+  // 新規記事は generateStaticParams に含まれていないため、ISR の動的生成パスを通る。
+  // 日本語 slug の場合 Next.js が x-next-cache-tags ヘッダー処理で 500 を出すので、
+  // Deploy Hook を fire-and-forget でキックして再ビルド → SSG されるようにする。
+  // ※ 既存記事の編集 (PUT) には不要（既に SSG 済みのため）。
+  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
+  if (hookUrl) {
+    fetch(hookUrl, { method: "POST" }).catch((err) => {
+      console.error("Deploy hook failed:", err);
+    });
+  }
+
   return NextResponse.json({ id: post.id, slug: post.slug });
 }
