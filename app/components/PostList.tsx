@@ -1,27 +1,38 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import PostListView from "@/app/components/PostListView";
 import PostsHydrator from "@/app/components/PostsHydrator";
 
 const isDev = process.env.NODE_ENV === "development";
 
-export default async function PostList() {
-  const posts = await prisma.post.findMany({
-    where: isDev ? undefined : { published: true },
-    orderBy: { createdAt: "desc" },
-    include: { author: true, tags: { include: { tag: true } } },
-    take: 3,
-  });
+// 1週間キャッシュ。記事 publish/update 時に revalidateTag("posts") で明示破棄する。
+// 保険として1週間で自動失効（書き忘れがあっても最終的には更新される）。
+const getRecentPosts = unstable_cache(
+  async () => {
+    const posts = await prisma.post.findMany({
+      where: isDev ? undefined : { published: true },
+      orderBy: { createdAt: "desc" },
+      include: { author: true, tags: { include: { tag: true } } },
+      take: 3,
+    });
 
-  const items = posts.map((post) => ({
-    id: post.id,
-    title: post.title,
-    slug: post.slug,
-    authorEmail: post.author.email,
-    createdAt: post.createdAt,
-    updatedAt: post.updatedAt,
-    content: post.content,
-    tags: post.tags.map((pt) => pt.tag.name),
-  }));
+    return posts.map((post) => ({
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      authorEmail: post.author.email,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+      content: post.content,
+      tags: post.tags.map((pt) => pt.tag.name),
+    }));
+  },
+  ["recent-posts"],
+  { revalidate: 86400, tags: ["posts"] }
+);
+
+export default async function PostList() {
+  const items = await getRecentPosts();
 
   return (
     <>
