@@ -38,7 +38,10 @@ export default async function PostPage({ params }: Props) {
   const isEngineerPost = tags.includes("技術");
   const siteUrl = "https://www.ryu-reu.me";
   const articleUrl = `${siteUrl}/posts/${post.slug}`;
-  const ogImageUrl = `${siteUrl}/api/og?title=${encodeURIComponent(post.title)}&desc=${encodeURIComponent(description)}${isEngineerPost ? "&avatar=engineer" : ""}`;
+  // 手動指定の OGP 画像があれば優先、無ければ /api/og で自動生成
+  const ogImageUrl = post.ogImage
+    ? post.ogImage
+    : `${siteUrl}/api/og?title=${encodeURIComponent(post.title)}&desc=${encodeURIComponent(description)}${isEngineerPost ? "&avatar=engineer" : ""}`;
 
   const jsonLd = {
     "@context": "https://schema.org",

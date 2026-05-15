@@ -27,10 +27,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .trim()
     .slice(0, 120);
 
-  // 技術タグが付いていれば OGP のアバターを engineer 版（ryu.jpg）に切替
+  // OGP 画像: 手動指定があればそれを優先、無ければ /api/og で自動生成
+  // 自動生成側では、技術タグが付いていれば engineer 版（ryu.jpg）アバターに切替
   const tagNames = post.tags.map((t) => t.tag.name);
   const isEngineerPost = tagNames.includes("技術");
-  const ogImageUrl = `/api/og?title=${encodeURIComponent(post.title)}&desc=${encodeURIComponent(description)}${isEngineerPost ? "&avatar=engineer" : ""}`;
+  const ogImageUrl = post.ogImage
+    ? post.ogImage
+    : `/api/og?title=${encodeURIComponent(post.title)}&desc=${encodeURIComponent(description)}${isEngineerPost ? "&avatar=engineer" : ""}`;
 
   return {
     metadataBase: new URL("https://www.ryu-reu.me"),
