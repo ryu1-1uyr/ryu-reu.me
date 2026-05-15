@@ -44,6 +44,33 @@ async function fetchWithTimeout(
   return res;
 }
 
+// ブラウザがアイドル時間に入ってから実行（メイン描画を邪魔しない）
+// requestIdleCallback が未対応なら setTimeout でフォールバック
+type IdleHandle = { type: "idle"; id: number } | { type: "timeout"; id: number };
+
+function scheduleIdle(cb: () => void): IdleHandle {
+  if (typeof window === "undefined") return { type: "timeout", id: 0 };
+  const ric = (window as Window & {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+  }).requestIdleCallback;
+  if (ric) {
+    return { type: "idle", id: ric(cb, { timeout: 3000 }) };
+  }
+  return { type: "timeout", id: window.setTimeout(cb, 200) };
+}
+
+function cancelIdle(handle: IdleHandle) {
+  if (typeof window === "undefined") return;
+  if (handle.type === "idle") {
+    const cic = (window as Window & {
+      cancelIdleCallback?: (id: number) => void;
+    }).cancelIdleCallback;
+    cic?.(handle.id);
+  } else {
+    clearTimeout(handle.id);
+  }
+}
+
 export function useWeatherData(): WeatherResult {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,9 +85,10 @@ export function useWeatherData(): WeatherResult {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     async function fetchWeather() {
+      timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
       try {
         const geoRes = await fetchWithTimeout(
           "https://ipapi.co/json/",
@@ -83,16 +111,20 @@ export function useWeatherData(): WeatherResult {
       } catch {
         // タイムアウト・ネットワークエラー → null のまま（時刻ベースの空にフォールバック）
       } finally {
-        clearTimeout(timeoutId);
+        if (timeoutId !== null) clearTimeout(timeoutId);
         if (!controller.signal.aborted) setIsLoading(false);
       }
     }
 
-    fetchWeather();
+    // 装飾用 API なのでメイン描画を邪魔しない。アイドル時間まで待ってから fetch。
+    const idleHandle = scheduleIdle(() => {
+      if (!controller.signal.aborted) fetchWeather();
+    });
 
     return () => {
+      cancelIdle(idleHandle);
       controller.abort();
-      clearTimeout(timeoutId);
+      if (timeoutId !== null) clearTimeout(timeoutId);
     };
   }, []);
 
