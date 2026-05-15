@@ -90,16 +90,10 @@ export function useWeatherData(): WeatherResult {
     async function fetchWeather() {
       timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
       try {
-        const geoRes = await fetchWithTimeout(
-          "https://ipapi.co/json/",
-          controller.signal
-        );
-        const geo = await geoRes.json();
-        const { latitude, longitude } = geo;
-        if (!latitude || !longitude) throw new Error("No coordinates");
-
+        // 位置情報はサーバー側 (Vercel Edge) が x-vercel-ip-* ヘッダから取得するので
+        // クライアントから座標を渡す必要なし。ipapi.co への往復も不要に。
         const weatherRes = await fetchWithTimeout(
-          `/api/weather?lat=${latitude}&lon=${longitude}`,
+          "/api/weather",
           controller.signal
         );
         const data: WeatherData = await weatherRes.json();
