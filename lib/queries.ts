@@ -14,3 +14,15 @@ export const getPostBySlug = cache(async (slug: string) => {
     include: { author: true, tags: { include: { tag: true } } },
   });
 });
+
+/**
+ * published な全記事の slug 一覧を取得する。
+ * 主に generateStaticParams (ビルド時の SSG) で使う。
+ */
+export async function getAllPublishedSlugs(): Promise<string[]> {
+  const posts = await prisma.post.findMany({
+    where: { published: true },
+    select: { slug: true },
+  });
+  return posts.map(({ slug }) => slug);
+}
