@@ -11,7 +11,14 @@ import { WeatherOverrideProvider } from "@/app/contexts/WeatherOverride";
 import { SkyDrawingsProvider } from "@/app/contexts/SkyDrawings";
 import { SkyBackgroundWrapper } from "@/app/components/SkyBackground";
 
-const yuseiMagic = Yusei_Magic({ weight: "400", subsets: ["latin"] });
+// preload: false にして 30+ の woff2 自動 preload を止める。
+// fallback フォントで初期描画 → 必要な subset だけ後でロードされる。
+// LCP が大きく悪化するようなら別案 (local subset 化など) に切り替える。
+const yuseiMagic = Yusei_Magic({
+  weight: "400",
+  subsets: ["latin"],
+  preload: false,
+});
 
 const siteUrl = "https://www.ryu-reu.me";
 const siteName = "りゆうのブログ: 実験場";
