@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { getPostBySlug } from "@/lib/queries";
 
 // ISR: 1日。記事更新時は revalidatePath(`/posts/${slug}`) で明示破棄想定。
 export const revalidate = 86400;
@@ -13,10 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
 
-  const post = await prisma.post.findUnique({
-    where: { slug },
-    include: { tags: { include: { tag: true } } },
-  });
+  const post = await getPostBySlug(slug);
 
   if (!post) {
     return { title: "記事が見つかりません" };

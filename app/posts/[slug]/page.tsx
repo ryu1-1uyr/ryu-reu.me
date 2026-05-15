@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getPostBySlug } from "@/lib/queries";
 import { renderMarkdown } from "@/lib/markdown";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
@@ -18,10 +18,7 @@ export default async function PostPage({ params }: Props) {
   const { slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
 
-  const post = await prisma.post.findUnique({
-    where: { slug },
-    include: { author: true, tags: { include: { tag: true } } },
-  });
+  const post = await getPostBySlug(slug);
 
   const isDev = process.env.NODE_ENV === "development";
   if (!post || (!isDev && !post.published)) {
