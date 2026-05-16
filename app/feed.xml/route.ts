@@ -1,8 +1,12 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 const SITE_URL = "https://www.ryu-reu.me";
 const SITE_TITLE = "りゆうのブログ: 実験場";
 const SITE_DESCRIPTION = "ブログとか思いついた機能をガンガン乗せるマイページ";
+
+// 1時間 ISR。記事更新時は revalidateTag("posts") で即破棄。
+export const revalidate = 3600;
 
 function escapeXml(str: string): string {
   return str
@@ -13,18 +17,27 @@ function escapeXml(str: string): string {
     .replace(/'/g, "&apos;");
 }
 
+// posts タグで他の Post クエリと同じ無効化軸に乗る。
+const getFeedPosts = unstable_cache(
+  async () => {
+    return prisma.post.findMany({
+      where: { published: true },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        title: true,
+        slug: true,
+        content: true,
+        createdAt: true,
+      },
+    });
+  },
+  ["feed-posts"],
+  { revalidate: 3600, tags: ["posts"] }
+);
+
 export async function GET() {
-  const posts = await prisma.post.findMany({
-    where: { published: true },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    select: {
-      title: true,
-      slug: true,
-      content: true,
-      createdAt: true,
-    },
-  });
+  const posts = await getFeedPosts();
 
   const lastBuild = posts[0]?.createdAt ?? new Date();
 

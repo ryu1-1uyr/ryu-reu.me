@@ -93,8 +93,11 @@ export default async function BlogPage({
           {/* タグフィルタ */}
           {allTags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-6">
+              {/* タグが多いと viewport 内の Link 全部 prefetch されちゃうので明示的に off。
+                  hover prefetch がデフォルトで効くので体験は落ちない。 */}
               <Link
                 href="/blog"
+                prefetch={false}
                 className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                   !tag
                     ? "bg-elements-button text-elements-background border-elements-button"
@@ -107,6 +110,7 @@ export default async function BlogPage({
                 <Link
                   key={t.id}
                   href={`/blog?tag=${encodeURIComponent(t.name)}`}
+                  prefetch={false}
                   className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                     tag === t.name
                       ? "bg-elements-button text-elements-background border-elements-button"

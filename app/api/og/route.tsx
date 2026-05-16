@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { OgCard } from "@/app/components/OgCard";
 
@@ -61,18 +62,24 @@ function extractDescription(content: string): string {
 }
 
 // slug → { title, description, thumbnailUrl } を解決（フォールバック用）
-async function resolveFromSlug(slug: string) {
-  const post = await prisma.post.findUnique({
-    where: { slug: decodeURIComponent(slug) },
-    select: { title: true, content: true },
-  });
-  if (!post) return null;
-  return {
-    title: post.title,
-    description: extractDescription(post.content),
-    thumbnailUrl: extractFirstImageUrl(post.content),
-  };
-}
+// 旧 URL や直接アクセスのみ通る低頻度パスだが、毎回 DB を叩くのは無駄なので
+// posts タグで他の Post クエリと同じ無効化軸に乗せる。
+const resolveFromSlug = unstable_cache(
+  async (slug: string) => {
+    const post = await prisma.post.findUnique({
+      where: { slug: decodeURIComponent(slug) },
+      select: { title: true, content: true },
+    });
+    if (!post) return null;
+    return {
+      title: post.title,
+      description: extractDescription(post.content),
+      thumbnailUrl: extractFirstImageUrl(post.content),
+    };
+  },
+  ["og-resolve-from-slug"],
+  { revalidate: 86400, tags: ["posts"] }
+);
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
