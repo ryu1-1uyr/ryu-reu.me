@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { checkCsrf } from "@/lib/csrf";
 import { IS_DEV } from "@/lib/env";
 import { normalizeTags } from "@/lib/tags";
-import { parseUpdatePostBody } from "@/lib/validation";
+import { parsePostBody } from "@/lib/validation";
 
 const BUCKET = "blog-images";
 
@@ -81,11 +81,11 @@ export async function PUT(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const parsed = parseUpdatePostBody(await request.json());
-  if ("error" in parsed) {
+  const parsed = parsePostBody(await request.json());
+  if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
-  const { title, content, published, tags, ogImage } = parsed;
+  const { title, content, published, tags, ogImage } = parsed.data;
 
   const normalizedTags = normalizeTags(tags);
 
@@ -126,10 +126,12 @@ export async function PUT(
   // - トップの「最近の戯言」(tag: posts)
   // - 該当記事の詳細ページ（ISR）
   // - /blog 一覧（ISR）
+  // - /feed.xml（ISR）
   // Next.js 16+ では revalidateTag は第二引数に cacheLife profile が必須
   revalidateTag("posts", "max");
   revalidatePath(`/posts/${updated.slug}`);
   revalidatePath("/blog");
+  revalidatePath("/feed.xml");
 
   // GET と同じ shape で返す（フロントが PUT 後に再 GET 不要に）
   return NextResponse.json({

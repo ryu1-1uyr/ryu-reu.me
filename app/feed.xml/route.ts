@@ -18,6 +18,9 @@ function escapeXml(str: string): string {
 }
 
 // posts タグで他の Post クエリと同じ無効化軸に乗る。
+// route 側で `revalidate = 3600` を指定済みなので、ここでは revalidate は持たず
+// tag による invalidation だけを担当する (記事更新時の `revalidatePath("/feed.xml")`
+// で route 全体が破棄され、再生成時にこの関数が呼ばれて最新を取る)。
 const getFeedPosts = unstable_cache(
   async () => {
     return prisma.post.findMany({
@@ -33,7 +36,7 @@ const getFeedPosts = unstable_cache(
     });
   },
   ["feed-posts"],
-  { revalidate: 3600, tags: ["posts"] }
+  { tags: ["posts"] }
 );
 
 export async function GET() {
