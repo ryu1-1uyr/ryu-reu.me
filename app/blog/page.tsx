@@ -93,8 +93,10 @@ export default async function BlogPage({
           {/* タグフィルタ */}
           {allTags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-6">
-              {/* タグが多いと viewport 内の Link 全部 prefetch されちゃうので明示的に off。
-                  hover prefetch がデフォルトで効くので体験は落ちない。 */}
+              {/* タグリンクは明示的に押される前提なので prefetch off。
+                  Next.js の prefetch={false} は viewport prefetch と hover prefetch
+                  の両方を無効化する。クリック後の遷移は若干遅くなるが、タグ数増加時の
+                  ネットワーク負荷を抑えるのが優先。 */}
               <Link
                 href="/blog"
                 prefetch={false}

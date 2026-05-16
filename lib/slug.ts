@@ -11,7 +11,8 @@
 export function generateSlug(title: string): string {
   const base = title
     .toLowerCase()
-    .replace(/[^a-z0-9぀-ゟ゠-ヿ一-龯]+/g, "-")
+    // ひらがな(U+3040-U+309F) + カタカナ(U+30A0-U+30FF) + CJK統合漢字(U+4E00-U+9FAF)
+    .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
   return `${base}-${Date.now()}`;
