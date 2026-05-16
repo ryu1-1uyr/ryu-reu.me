@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getPostBySlug, getAllPublishedSlugs } from "@/lib/queries";
 import { renderMarkdownCached } from "@/lib/markdown";
+import { IS_DEV } from "@/lib/env";
 import PageTransition from "@/app/components/PageTransition";
 import BackButton from "@/app/components/BackButton";
 import ShareButtons from "@/app/components/ShareButtons";
@@ -29,8 +30,7 @@ export default async function PostPage({ params }: Props) {
 
   const post = await getPostBySlug(slug);
 
-  const isDev = process.env.NODE_ENV === "development";
-  if (!post || (!isDev && !post.published)) {
+  if (!post || (!IS_DEV && !post.published)) {
     notFound();
   }
 

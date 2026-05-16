@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { IS_DEV } from "@/lib/env";
 import PostCard from "@/app/components/PostCard";
 import Pagination from "@/app/components/Pagination";
 import BackButton from "@/app/components/BackButton";
@@ -20,7 +21,6 @@ export const metadata: Metadata = {
 export const revalidate = 3600; // 1時間キャッシュ（ISR）
 
 const POSTS_PER_PAGE = 10;
-const isDev = process.env.NODE_ENV === "development";
 
 export default async function BlogPage({
   searchParams,
@@ -31,7 +31,7 @@ export default async function BlogPage({
   const currentPage = Math.max(1, parseInt(pageParam || "1", 10) || 1);
 
   const where = {
-    ...(isDev ? {} : { published: true as const }),
+    ...(IS_DEV ? {} : { published: true as const }),
     ...(tag ? { tags: { some: { tag: { name: tag } } } } : {}),
   };
 
@@ -45,7 +45,7 @@ export default async function BlogPage({
     }),
     prisma.post.count({ where }),
     prisma.tag.findMany({
-      where: isDev ? {} : { posts: { some: { post: { published: true } } } },
+      where: IS_DEV ? {} : { posts: { some: { post: { published: true } } } },
       orderBy: { name: "asc" },
     }),
   ]);

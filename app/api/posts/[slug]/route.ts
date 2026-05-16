@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { checkCsrf } from "@/lib/csrf";
+import { IS_DEV } from "@/lib/env";
 
 const BUCKET = "blog-images";
 
@@ -27,8 +28,7 @@ export async function GET(
     include: { author: true, tags: { include: { tag: true } } },
   });
 
-  const isDev = process.env.NODE_ENV === "development";
-  if (!post || (!isDev && !post.published)) {
+  if (!post || (!IS_DEV && !post.published)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
