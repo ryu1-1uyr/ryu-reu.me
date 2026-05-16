@@ -1,20 +1,35 @@
 /**
  * 環境変数を一元管理するモジュール。
  *
- * 必須の環境変数は `requireEnv` を通して読むことで、未設定なら起動時に
- * 即座に throw される（ランタイムで `undefined!` が漏れるのを防ぐ）。
- * 各ファイルで `process.env.FOO!` を散らばらせないのが目的。
+ * 各 getter は **lazy 評価** で、`import { env } from "@/lib/env"` した時点では
+ * 何も評価されない。実際に `env.SUPABASE_URL` を参照したタイミングで初めて検証。
+ *
+ * NEXT_PUBLIC_* は Next.js が **ビルド時にクライアントバンドルへ inline** するが、
+ * static analysis に依存しているため `process.env[key]` のような動的アクセスは
+ * inline されず、ブラウザ側で undefined になる。必ず `process.env.NEXT_PUBLIC_FOO`
+ * の形で **静的に書く**。
  */
 
-function requireEnv(key: string): string {
-  const v = process.env[key];
-  if (!v) {
+function requireEnv(key: string, value: string | undefined): string {
+  if (!value) {
     throw new Error(`Missing required environment variable: ${key}`);
   }
-  return v;
+  return value;
 }
 
-export const SUPABASE_URL = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-export const SUPABASE_ANON_KEY = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+export const env = {
+  get SUPABASE_URL(): string {
+    return requireEnv(
+      "NEXT_PUBLIC_SUPABASE_URL",
+      process.env.NEXT_PUBLIC_SUPABASE_URL
+    );
+  },
+  get SUPABASE_ANON_KEY(): string {
+    return requireEnv(
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+  },
+};
 
 export const IS_DEV = process.env.NODE_ENV === "development";
