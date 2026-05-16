@@ -91,6 +91,7 @@ export default function RetroWindow({
       className={`
         rounded-lg
         border-2 border-illustration-stroke
+        overflow-hidden
         shadow-[4px_4px_0px_0px_rgba(18,22,41,0.6)]
         w-fit
         ${className}
