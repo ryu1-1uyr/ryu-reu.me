@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { IS_DEV } from "@/lib/env";
 import PostCard from "@/app/components/PostCard";
 import Pagination from "@/app/components/Pagination";
 import BackButton from "@/app/components/BackButton";
@@ -20,7 +21,6 @@ export const metadata: Metadata = {
 export const revalidate = 3600; // 1時間キャッシュ（ISR）
 
 const POSTS_PER_PAGE = 10;
-const isDev = process.env.NODE_ENV === "development";
 
 export default async function BlogPage({
   searchParams,
@@ -31,7 +31,7 @@ export default async function BlogPage({
   const currentPage = Math.max(1, parseInt(pageParam || "1", 10) || 1);
 
   const where = {
-    ...(isDev ? {} : { published: true as const }),
+    ...(IS_DEV ? {} : { published: true as const }),
     ...(tag ? { tags: { some: { tag: { name: tag } } } } : {}),
   };
 
@@ -45,7 +45,7 @@ export default async function BlogPage({
     }),
     prisma.post.count({ where }),
     prisma.tag.findMany({
-      where: isDev ? {} : { posts: { some: { post: { published: true } } } },
+      where: IS_DEV ? {} : { posts: { some: { post: { published: true } } } },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -93,8 +93,13 @@ export default async function BlogPage({
           {/* タグフィルタ */}
           {allTags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-6">
+              {/* タグリンクは明示的に押される前提なので prefetch off。
+                  Next.js の prefetch={false} は viewport prefetch と hover prefetch
+                  の両方を無効化する。クリック後の遷移は若干遅くなるが、タグ数増加時の
+                  ネットワーク負荷を抑えるのが優先。 */}
               <Link
                 href="/blog"
+                prefetch={false}
                 className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                   !tag
                     ? "bg-elements-button text-elements-background border-elements-button"
@@ -107,6 +112,7 @@ export default async function BlogPage({
                 <Link
                   key={t.id}
                   href={`/blog?tag=${encodeURIComponent(t.name)}`}
+                  prefetch={false}
                   className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                     tag === t.name
                       ? "bg-elements-button text-elements-background border-elements-button"

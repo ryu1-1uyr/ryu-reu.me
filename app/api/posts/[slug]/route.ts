@@ -3,6 +3,9 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { checkCsrf } from "@/lib/csrf";
+import { IS_DEV } from "@/lib/env";
+import { normalizeTags } from "@/lib/tags";
+import { parsePostBody } from "@/lib/validation";
 
 const BUCKET = "blog-images";
 
@@ -27,8 +30,7 @@ export async function GET(
     include: { author: true, tags: { include: { tag: true } } },
   });
 
-  const isDev = process.env.NODE_ENV === "development";
-  if (!post || (!isDev && !post.published)) {
+  if (!post || (!IS_DEV && !post.published)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -79,26 +81,13 @@ export async function PUT(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
-  const { title, content, published, tags, ogImage } = body as {
-    title?: string;
-    content?: string;
-    published?: boolean;
-    tags?: string[];
-    ogImage?: string | null;
-  };
-
-  if (!title || !content) {
-    return NextResponse.json(
-      { error: "title, content are required" },
-      { status: 400 }
-    );
+  const parsed = parsePostBody(await request.json());
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const { title, content, published, tags, ogImage } = parsed.data;
 
-  // タグの正規化
-  const normalizedTags = tags
-    ? [...new Set(tags.map((t) => t.trim().normalize("NFKC")).filter(Boolean))]
-    : [];
+  const normalizedTags = normalizeTags(tags);
 
   // 既存タグを一旦全削除して再作成
   const newOgImage = ogImage ?? null;
@@ -120,6 +109,7 @@ export async function PUT(
           })),
         },
       },
+      include: { author: true, tags: { include: { tag: true } } },
     });
   });
 
@@ -136,10 +126,24 @@ export async function PUT(
   // - トップの「最近の戯言」(tag: posts)
   // - 該当記事の詳細ページ（ISR）
   // - /blog 一覧（ISR）
+  // - /feed.xml（ISR）
   // Next.js 16+ では revalidateTag は第二引数に cacheLife profile が必須
   revalidateTag("posts", "max");
   revalidatePath(`/posts/${updated.slug}`);
   revalidatePath("/blog");
+  revalidatePath("/feed.xml");
 
-  return NextResponse.json({ id: updated.id, slug: updated.slug });
+  // GET と同じ shape で返す（フロントが PUT 後に再 GET 不要に）
+  return NextResponse.json({
+    id: updated.id,
+    title: updated.title,
+    slug: updated.slug,
+    published: updated.published,
+    authorEmail: updated.author.email,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+    content: updated.content,
+    ogImage: updated.ogImage,
+    tags: updated.tags.map((pt) => pt.tag.name),
+  });
 }
