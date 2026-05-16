@@ -3,6 +3,9 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { checkCsrf } from "@/lib/csrf";
+import { generateSlug } from "@/lib/slug";
+import { normalizeTags } from "@/lib/tags";
+import { parseCreatePostBody } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   const csrfError = checkCsrf(request);
@@ -18,29 +21,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { title, content, published, tags, ogImage } = body as {
-    title?: string;
-    content?: string;
-    published?: boolean;
-    tags?: string[];
-    ogImage?: string | null;
-  };
-
-  if (!title || !content) {
-    return NextResponse.json(
-      { error: "title, content are required" },
-      { status: 400 }
-    );
+  const parsed = parseCreatePostBody(await request.json());
+  if ("error" in parsed) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const { title, content, published, tags, ogImage } = parsed;
 
   // タイトルから slug を自動生成（英数字+ハイフン+タイムスタンプで一意性担保）
-  const baseSlug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-  const slug = `${baseSlug}-${Date.now()}`;
+  const slug = generateSlug(title);
 
   // Supabase Auth の email から Prisma User を引く
   const prismaUser = await prisma.user.findUnique({
@@ -54,10 +42,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // タグ名を正規化（全角→半角、前後空白除去、空文字除外）
-  const normalizedTags = tags
-    ? [...new Set(tags.map((t) => t.trim().normalize("NFKC")).filter(Boolean))]
-    : [];
+  const normalizedTags = normalizeTags(tags);
 
   const post = await prisma.post.create({
     data: {

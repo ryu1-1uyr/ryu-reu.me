@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { checkCsrf } from "@/lib/csrf";
 import { IS_DEV } from "@/lib/env";
+import { normalizeTags } from "@/lib/tags";
+import { parseUpdatePostBody } from "@/lib/validation";
 
 const BUCKET = "blog-images";
 
@@ -79,26 +81,13 @@ export async function PUT(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
-  const { title, content, published, tags, ogImage } = body as {
-    title?: string;
-    content?: string;
-    published?: boolean;
-    tags?: string[];
-    ogImage?: string | null;
-  };
-
-  if (!title || !content) {
-    return NextResponse.json(
-      { error: "title, content are required" },
-      { status: 400 }
-    );
+  const parsed = parseUpdatePostBody(await request.json());
+  if ("error" in parsed) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
+  const { title, content, published, tags, ogImage } = parsed;
 
-  // タグの正規化
-  const normalizedTags = tags
-    ? [...new Set(tags.map((t) => t.trim().normalize("NFKC")).filter(Boolean))]
-    : [];
+  const normalizedTags = normalizeTags(tags);
 
   // 既存タグを一旦全削除して再作成
   const newOgImage = ogImage ?? null;
@@ -120,6 +109,7 @@ export async function PUT(
           })),
         },
       },
+      include: { author: true, tags: { include: { tag: true } } },
     });
   });
 
@@ -141,5 +131,17 @@ export async function PUT(
   revalidatePath(`/posts/${updated.slug}`);
   revalidatePath("/blog");
 
-  return NextResponse.json({ id: updated.id, slug: updated.slug });
+  // GET と同じ shape で返す（フロントが PUT 後に再 GET 不要に）
+  return NextResponse.json({
+    id: updated.id,
+    title: updated.title,
+    slug: updated.slug,
+    published: updated.published,
+    authorEmail: updated.author.email,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+    content: updated.content,
+    ogImage: updated.ogImage,
+    tags: updated.tags.map((pt) => pt.tag.name),
+  });
 }
