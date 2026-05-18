@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // React Compiler を有効化。useMemo/useCallback/React.memo の手動メモ化を
+  // 自動化してくれる。既存の手動メモ化はそのまま尊重されるので非破壊で導入可能。
+  // Next.js は SWC で対象ファイル (JSX/Hook 含むやつ) だけ Babel に通すので
+  // ビルド時間への影響は最小。
+  reactCompiler: true,
   experimental: {
     inlineCss: true,
     // クライアント側 Router Cache の保持時間。
