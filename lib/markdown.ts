@@ -11,9 +11,9 @@ import rehypeStringify from "rehype-stringify";
 import rehypePrettyCode, { type Options as PrettyCodeOptions } from "rehype-pretty-code";
 import { createHighlighter, type Highlighter } from "shiki";
 import type { Root, Element } from "hast";
-import type { Root as MdastRoot, Code as MdastCode } from "mdast";
 import { visit } from "unist-util-visit";
 import probe from "probe-image-size";
+import { remarkForceLineNumbers } from "./markdown-shared";
 
 // shiki Highlighter のモジュールスコープ Promise キャッシュ。
 // 全 SSG ページが同一インスタンスを再利用するため、初期化コスト (テーマ + 言語 grammar
@@ -30,24 +30,6 @@ function getHighlighter() {
     });
   }
   return highlighterPromise;
-}
-
-/**
- * 全コードフェンスに `showLineNumbers` meta を強制注入する remark plugin。
- * rehype-pretty-code が `defaultLineNumbers` オプションを持たないため、
- * remark 段階で markdown AST を書き換える方式で対応。
- *
- * CSR (react-markdown) からも import して共有する。
- */
-export function remarkForceLineNumbers() {
-  return (tree: MdastRoot) => {
-    visit(tree, "code", (node: MdastCode) => {
-      const existing = node.meta ?? "";
-      if (!existing.includes("showLineNumbers")) {
-        node.meta = existing ? `${existing} showLineNumbers` : "showLineNumbers";
-      }
-    });
-  };
 }
 
 const prettyCodeOptions: PrettyCodeOptions = {
