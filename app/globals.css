@@ -13,3 +13,37 @@
   width: 100%;
   height: auto;
 }
+
+/* === shiki (rehype-pretty-code) のスタイル統合 ===
+   shiki が <pre> に inline style で背景色 (github-light は #fff) や
+   color を入れるので、上書きが必要なところは !important を使う。 */
+
+/* コードブロック背景。本文と区別しやすい薄グレーに */
+.prose figure[data-rehype-pretty-code-figure] > pre {
+  background-color: #f6f8fa !important;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+/* prose の `<code>::before / ::after` でバッククォートが出る挙動を、
+   shiki ブロック内の <code> では無効化 (inline code には残す) */
+.prose figure[data-rehype-pretty-code-figure] code::before,
+.prose figure[data-rehype-pretty-code-figure] code::after {
+  content: none !important;
+}
+
+/* 行番号: <code style="display:grid"> の中の <span data-line> を counter で
+   カウントして ::before で番号表示 */
+.prose figure[data-rehype-pretty-code-figure] code {
+  counter-reset: line;
+}
+.prose figure[data-rehype-pretty-code-figure] code > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 1rem;
+  margin-right: 0.75rem;
+  text-align: right;
+  color: rgba(0, 0, 0, 0.35);
+  user-select: none;
+}

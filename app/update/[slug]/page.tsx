@@ -2,11 +2,9 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo, DragEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
 import TagInput from "@/app/components/TagInput";
 import OgImagePicker, { extractImageUrls } from "@/app/components/OgImagePicker";
+import MarkdownPreview from "@/app/components/MarkdownPreview";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -319,12 +317,7 @@ export default function UpdatePage() {
             >
               {content ? (
                 <article className="prose prose-neutral max-w-none">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw]}
-                  >
-                    {content}
-                  </ReactMarkdown>
+                  <MarkdownPreview content={content} />
                 </article>
               ) : (
                 <p className="text-gray-400 italic">
