@@ -8,14 +8,68 @@ import remarkRehype from "remark-rehype";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
+import rehypePrettyCode, { type Options as PrettyCodeOptions } from "rehype-pretty-code";
+import { createHighlighter, type Highlighter } from "shiki";
 import type { Root, Element } from "hast";
+import type { Root as MdastRoot, Code as MdastCode } from "mdast";
 import { visit } from "unist-util-visit";
 import probe from "probe-image-size";
 
+// shiki Highlighter のモジュールスコープ Promise キャッシュ。
+// 全 SSG ページが同一インスタンスを再利用するため、初期化コスト (テーマ + 言語 grammar
+// のロード) はビルド全体で 1 回だけ。
+let highlighterPromise: Promise<Highlighter> | null = null;
+function getHighlighter() {
+  if (!highlighterPromise) {
+    highlighterPromise = createHighlighter({
+      themes: ["github-light"],
+      langs: [
+        "ts", "tsx", "js", "jsx", "json", "bash", "css", "html",
+        "md", "sql", "python", "yaml", "diff",
+      ],
+    });
+  }
+  return highlighterPromise;
+}
+
+/**
+ * 全コードフェンスに `showLineNumbers` meta を強制注入する remark plugin。
+ * rehype-pretty-code が `defaultLineNumbers` オプションを持たないため、
+ * remark 段階で markdown AST を書き換える方式で対応。
+ *
+ * CSR (react-markdown) からも import して共有する。
+ */
+export function remarkForceLineNumbers() {
+  return (tree: MdastRoot) => {
+    visit(tree, "code", (node: MdastCode) => {
+      const existing = node.meta ?? "";
+      if (!existing.includes("showLineNumbers")) {
+        node.meta = existing ? `${existing} showLineNumbers` : "showLineNumbers";
+      }
+    });
+  };
+}
+
+const prettyCodeOptions: PrettyCodeOptions = {
+  theme: "github-light",
+  defaultLang: "plaintext",
+  keepBackground: true,
+  // inline `code` (バッククォート 1 個) はハイライト対象外。
+  // prose のデフォルトスタイル (背景色 + ::before/::after のバッククォート) に任せる。
+  bypassInlineCode: true,
+  // 共有 highlighter を渡す。型が複雑なので as never で逃がす
+  getHighlighter: async () => (await getHighlighter()) as never,
+};
+
 // rehype-sanitize は hast (HTML AST) のプロパティ名を使う
 // HTML の class → hast では className、data-* → data* で一括許可
+//
+// shiki / rehype-pretty-code が出力する <figure>, <pre>, <code>, <span> の
+// className / style / data-* / tabindex を許可しないとシンタックスハイライトが
+// sanitize で剥がれる。
 const schema = {
   ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), "figure"],
   attributes: {
     ...defaultSchema.attributes,
     img: [
@@ -25,6 +79,19 @@ const schema = {
     ],
     blockquote: [...(defaultSchema.attributes?.blockquote ?? []), "className", "data*"],
     a: [...(defaultSchema.attributes?.a ?? []), "className"],
+    code: [
+      ...(defaultSchema.attributes?.code ?? []),
+      "className", "style", "data*", "tabindex",
+    ],
+    pre: [
+      ...(defaultSchema.attributes?.pre ?? []),
+      "className", "style", "data*", "tabindex",
+    ],
+    span: [
+      ...(defaultSchema.attributes?.span ?? []),
+      "className", "style", "data*",
+    ],
+    figure: ["className", "data*"],
   },
 };
 
@@ -181,8 +248,12 @@ export async function renderMarkdown(
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkForceLineNumbers)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
+    // shiki によるハイライト。sanitize の前に置くことで、user の生 HTML を
+    // 一度 sanitize に通してから出力できる (順序は安全側に倒す)。
+    .use(rehypePrettyCode, prettyCodeOptions)
     .use(rehypeSanitize, schema)
     .use(() => rehypeCollectImages(lcpHintRef, collectedImages))
     .use(rehypeStringify);
@@ -213,7 +284,8 @@ export async function renderMarkdown(
 const renderMarkdownCachedInner = unstable_cache(
   async (_slug: string, _updatedAtIso: string, md: string) =>
     renderMarkdown(md),
-  ["render-markdown"],
+  // shiki 導入で出力 HTML が変わるので、suffix を bump して全記事を自動再生成させる。
+  ["render-markdown", "v2-shiki"],
   { revalidate: false, tags: ["markdown"] }
 );
 

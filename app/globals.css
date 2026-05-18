@@ -13,3 +13,11 @@
   width: 100%;
   height: auto;
 }
+
+/* shiki (rehype-pretty-code) のコードブロック背景。
+   shiki が <pre> に inline style で背景色 (github-light は #fff) を入れるので
+   !important で上書き。本文と区別しやすい薄グレーに。 */
+.prose figure[data-rehype-pretty-code-figure] > pre {
+  background-color: #f6f8fa !important;
+  border-radius: 0.5rem;
+}
