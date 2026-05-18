@@ -21,9 +21,11 @@ function escapeXml(str: string): string {
 // route 側で `revalidate = 3600` を指定済みなので、ここでは revalidate は持たず
 // tag による invalidation だけを担当する (記事更新時の `revalidatePath("/feed.xml")`
 // で route 全体が破棄され、再生成時にこの関数が呼ばれて最新を取る)。
+// unstable_cache は戻り値を JSON シリアライズするので Date は string になる。
+// 消費側で混乱しないように、cache 内で明示的に ISO 文字列化しておく。
 const getFeedPosts = unstable_cache(
   async () => {
-    return prisma.post.findMany({
+    const posts = await prisma.post.findMany({
       where: { published: true },
       orderBy: { createdAt: "desc" },
       take: 20,
@@ -34,6 +36,10 @@ const getFeedPosts = unstable_cache(
         createdAt: true,
       },
     });
+    return posts.map((p) => ({
+      ...p,
+      createdAt: p.createdAt.toISOString(),
+    }));
   },
   ["feed-posts"],
   { tags: ["posts"] }
@@ -42,17 +48,18 @@ const getFeedPosts = unstable_cache(
 export async function GET() {
   const posts = await getFeedPosts();
 
-  const lastBuild = posts[0]?.createdAt ?? new Date();
+  const lastBuild = posts[0] ? new Date(posts[0].createdAt) : new Date();
 
   const items = posts
     .map((post) => {
       const link = `${SITE_URL}/posts/${encodeURIComponent(post.slug)}`;
       const description = post.content.slice(0, 200).replace(/\n/g, " ");
+      const createdAt = new Date(post.createdAt);
       return `    <item>
       <title>${escapeXml(post.title)}</title>
       <link>${link}</link>
       <guid>${link}</guid>
-      <pubDate>${post.createdAt.toUTCString()}</pubDate>
+      <pubDate>${createdAt.toUTCString()}</pubDate>
       <description>${escapeXml(description)}</description>
     </item>`;
     })
