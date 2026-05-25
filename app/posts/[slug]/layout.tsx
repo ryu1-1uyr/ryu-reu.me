@@ -16,7 +16,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await getPostBySlug(slug);
 
   if (!post) {
-    return { title: "記事が見つかりません" };
+    // { absolute: ... } で root layout の title template (%s | サイト名) を bypass
+    return { title: { absolute: "りゆうのブログ: 記事が見つかりません" } };
   }
 
   const description = post.content
@@ -35,9 +36,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? post.ogImage
     : `/api/og?title=${encodeURIComponent(post.title)}&desc=${encodeURIComponent(description)}${isEngineerPost ? "&avatar=engineer" : ""}`;
 
+  // 「りゆうのブログ: ${記事タイトル}」形式で統一。
+  // HTML <title>、OGP、Twitter カードすべてに同じ文字列を使う。
+  // { absolute: ... } を使うことで root layout の title template (%s | サイト名)
+  // を明示的に bypass (文字列直渡しだと template が効いて二重化する)。
+  const pageTitle = `りゆうのブログ: ${post.title}`;
+
   return {
     metadataBase: new URL("https://www.ryu-reu.me"),
-    title: post.title,
+    title: { absolute: pageTitle },
     description,
     alternates: { canonical: `/posts/${post.slug}` },
     keywords: [
@@ -53,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       type: "article",
       siteName: "りゆうの実験場",
-      title: post.title,
+      title: pageTitle,
       description,
       url: `/posts/${post.slug}`,
       locale: "ja_JP",
@@ -63,7 +70,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       site: "@reu_00_00",
       creator: "@reu_00_00",
-      title: post.title,
+      title: pageTitle,
       description,
       images: [ogImageUrl],
     },
