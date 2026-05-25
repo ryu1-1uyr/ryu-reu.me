@@ -316,7 +316,7 @@ export default function UpdatePage() {
               className="w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline overflow-y-auto"
             >
               {content ? (
-                <article className="prose prose-neutral max-w-none">
+                <article className="prose prose-neutral prose-mobile-tuned max-w-none">
                   <MarkdownPreview content={content} />
                 </article>
               ) : (
