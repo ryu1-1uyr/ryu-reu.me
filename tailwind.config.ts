@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   content: [
@@ -41,7 +42,46 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("@tailwindcss/typography")],
+  plugins: [
+    require("@tailwindcss/typography"),
+    // `prose-mobile-tuned` クラス: スマホ (~767px) のときだけ prose を読みやすく調整。
+    //   <article className="prose prose-neutral prose-mobile-tuned max-w-none">
+    // 内容:
+    // - 見出し (h1/h2/h3) を縮小して改行を抑える
+    // - リスト要素の上下マージンを詰める
+    // - テーブルは横スクロール + セル内は改行禁止
+    //
+    // typography プラグインの `theme.typography['mobile-tuned'].css` 経由で
+    // 書くと、内部の :where() ネスト処理で @media が剥がれて全画面サイズに
+    // 適用されちゃう挙動だったので、addComponents で直接 @media を書く。
+    plugin(({ addComponents }) => {
+      addComponents({
+        "@media (max-width: 767px)": {
+          // ベースの font-size を下げて全体をスケールダウン。
+          // 子要素 (h1/h2/h3 等) はこの 14.4px を基準に em で相対指定。
+          ".prose-mobile-tuned": {
+            fontSize: "0.9em", // ≒ 14.4px (16 * 0.9)
+          },
+          ".prose-mobile-tuned h1": { fontSize: "1.222em", lineHeight: "1.3" }, // ≒ 17.6px (1.1em from 16)
+          ".prose-mobile-tuned h2": { fontSize: "1.111em", lineHeight: "1.35" }, // ≒ 16px
+          ".prose-mobile-tuned h3": { fontSize: "1.05em", lineHeight: "1.4" }, // ≒ 15.1px
+          ".prose-mobile-tuned ul > li, .prose-mobile-tuned ol > li": {
+            marginTop: "0.2em",
+            marginBottom: "0.2em",
+            paddingInlineStart: "0",
+          },
+          // table は本文と同じ 14.4px で継承 (個別 fontSize 指定なし)
+          ".prose-mobile-tuned table": {
+            display: "block",
+            overflowX: "auto",
+          },
+          ".prose-mobile-tuned thead th, .prose-mobile-tuned tbody td": {
+            whiteSpace: "nowrap",
+          },
+        },
+      });
+    }),
+  ],
 };
 export default config;
 

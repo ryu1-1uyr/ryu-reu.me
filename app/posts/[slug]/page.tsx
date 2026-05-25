@@ -118,7 +118,7 @@ export default async function PostPage({ params }: Props) {
             </p>
           </div>
           <article
-            className="bg-elements-headline rounded-lg p-8 prose prose-neutral max-w-none"
+            className="bg-elements-headline rounded-lg px-4 py-8 md:p-8 prose prose-neutral prose-mobile-tuned max-w-none"
             dangerouslySetInnerHTML={{ __html: html }}
           />
           <TwitterEmbed html={html} />
