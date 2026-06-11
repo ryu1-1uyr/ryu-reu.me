@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { IS_DEV } from "@/lib/env";
 import PostCard from "@/app/components/PostCard";
@@ -18,9 +19,53 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 3600; // 1時間キャッシュ（ISR）
-
 const POSTS_PER_PAGE = 10;
+
+// searchParams を読む時点でこのページは dynamic レンダリングになり、
+// `export const revalidate`（ISR）は効かない。代わりに DB クエリを
+// unstable_cache でキャッシュする（引数の page / tag が自動でキャッシュキーに入る）。
+// 記事の publish/update 時は revalidateTag("posts") で即破棄、保険で1時間自動失効。
+// unstable_cache は戻り値を JSON シリアライズするので Date は string になる。
+// 消費側で混乱しないように、cache 内で明示的に ISO 文字列化しておく（feed.xml と同じ流儀）。
+const getBlogPageData = unstable_cache(
+  async (page: number, tag: string | undefined) => {
+    const where = {
+      ...(IS_DEV ? {} : { published: true as const }),
+      ...(tag ? { tags: { some: { tag: { name: tag } } } } : {}),
+    };
+
+    const [posts, totalCount, allTags] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: { author: true, tags: { include: { tag: true } } },
+        skip: (page - 1) * POSTS_PER_PAGE,
+        take: POSTS_PER_PAGE,
+      }),
+      prisma.post.count({ where }),
+      prisma.tag.findMany({
+        where: IS_DEV ? {} : { posts: { some: { post: { published: true } } } },
+        orderBy: { name: "asc" },
+      }),
+    ]);
+
+    return {
+      items: posts.map((post) => ({
+        id: post.id,
+        title: post.title,
+        slug: post.slug,
+        authorEmail: post.author.email,
+        createdAt: post.createdAt.toISOString(),
+        content: post.content,
+        tags: post.tags.map((pt) => pt.tag.name),
+      })),
+      totalCount,
+      allTags: allTags.map((t) => ({ id: t.id, name: t.name })),
+    };
+  },
+  ["blog-page"],
+  { revalidate: 3600, tags: ["posts"] }
+);
 
 export default async function BlogPage({
   searchParams,
@@ -30,37 +75,12 @@ export default async function BlogPage({
   const { page: pageParam, tag } = await searchParams;
   const currentPage = Math.max(1, parseInt(pageParam || "1", 10) || 1);
 
-  const where = {
-    ...(IS_DEV ? {} : { published: true as const }),
-    ...(tag ? { tags: { some: { tag: { name: tag } } } } : {}),
-  };
-
-  const [posts, totalCount, allTags] = await Promise.all([
-    prisma.post.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: { author: true, tags: { include: { tag: true } } },
-      skip: (currentPage - 1) * POSTS_PER_PAGE,
-      take: POSTS_PER_PAGE,
-    }),
-    prisma.post.count({ where }),
-    prisma.tag.findMany({
-      where: IS_DEV ? {} : { posts: { some: { post: { published: true } } } },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  const { items, totalCount, allTags } = await getBlogPageData(
+    currentPage,
+    tag
+  );
 
   const totalPages = Math.ceil(totalCount / POSTS_PER_PAGE);
-
-  const items = posts.map((post) => ({
-    id: post.id,
-    title: post.title,
-    slug: post.slug,
-    authorEmail: post.author.email,
-    createdAt: post.createdAt,
-    content: post.content,
-    tags: post.tags.map((pt) => pt.tag.name),
-  }));
 
   const siteUrl = "https://www.ryu-reu.me";
   const breadcrumbJsonLd = {
@@ -140,7 +160,7 @@ export default async function BlogPage({
                   slug={post.slug}
                   title={post.title}
                   authorEmail={post.authorEmail}
-                  createdAt={post.createdAt}
+                  createdAt={new Date(post.createdAt)}
                   content={post.content}
                   tags={post.tags}
                 />
