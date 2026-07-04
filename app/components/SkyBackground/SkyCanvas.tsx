@@ -37,12 +37,13 @@ function lerpColor(a: string, b: string, t: number): string {
     const v = parseInt(hex.slice(1), 16);
     return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
   };
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
   const [ar, ag, ab] = parse(a);
   const [br, bg, bb] = parse(b);
-  const r = Math.round(ar + (br - ar) * t);
-  const g = Math.round(ag + (bg - ag) * t);
-  const bl = Math.round(ab + (bb - ab) * t);
-  return `rgb(${r},${g},${bl})`;
+  const r = clamp(ar + (br - ar) * t);
+  const g = clamp(ag + (bg - ag) * t);
+  const bl = clamp(ab + (bb - ab) * t);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bl.toString(16).padStart(2, "0")}`;
 }
 
 
@@ -947,7 +948,9 @@ export default function SkyCanvas({
 
   // props → ref（ループはここから毎フレーム読む）
   const propsRef = useRef({ phase, phaseProgress, targetFps });
-  propsRef.current = { phase, phaseProgress, targetFps };
+  useEffect(() => {
+    propsRef.current = { phase, phaseProgress, targetFps };
+  }, [phase, phaseProgress, targetFps]);
 
   // condition 変更 → エンジンのターゲット更新
   useEffect(() => {
