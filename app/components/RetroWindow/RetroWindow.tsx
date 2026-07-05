@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useCallback, useState, type PointerEvent } from "react";
+import { useRef, useCallback, useState, useEffect, type PointerEvent } from "react";
+import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
 
 type TitleBarColor = "pink" | "blue" | "teal" | "orange";
 
@@ -15,6 +16,8 @@ type Props = {
   zIndex?: number;
   onClose?: () => void;
   onFocus?: () => void;
+  /** 指定すると SurfaceRegistry に登録し天候エフェクトの干渉対象になる */
+  surfaceId?: string;
 };
 
 const BAR_COLORS: Record<
@@ -37,7 +40,18 @@ export default function RetroWindow({
   zIndex,
   onClose,
   onFocus,
+  surfaceId,
 }: Props) {
+  const registry = useSurfaceRegistry();
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!surfaceId || !registry || !rootRef.current) return;
+    const el = rootRef.current;
+    registry.register(surfaceId, el);
+    return () => registry.unregister(surfaceId);
+  }, [surfaceId, registry]);
+
   // draggable の場合: absolute 配置で initialPosition からスタート
   const [pos, setPos] = useState(initialPosition ?? { x: 0, y: 0 });
   const dragRef = useRef<{
@@ -88,6 +102,7 @@ export default function RetroWindow({
 
   return (
     <div
+      ref={rootRef}
       className={`
         rounded-lg
         border-2 border-illustration-stroke
