@@ -8,8 +8,10 @@ import {
   createWeatherEngine,
   setCondition,
   tick,
+  getEffectiveWind,
   type WeatherEngineState,
 } from "@/app/components/SkyBackground/weatherEngine";
+import { attachGustTracker } from "@/app/components/SkyBackground/gustTracker";
 import {
   createRainFx,
   tickRainFx,
@@ -66,11 +68,13 @@ export default function WeatherFxOverlay() {
 
     function loop(time: number) {
       rafId = requestAnimationFrame(loop);
-      const delta = lastTime ? time - lastTime : 16.67;
+      // タブ非表示から復帰した直後に巨大な delta が流れないようクランプ
+      const delta = Math.min(lastTime ? time - lastTime : 16.67, 100);
       lastTime = time;
 
       tick(engineRef.current, delta);
-      const { rain, snow, wind } = engineRef.current.current;
+      const { rain, snow } = engineRef.current.current;
+      const wind = getEffectiveWind(engineRef.current);
 
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -96,7 +100,7 @@ export default function WeatherFxOverlay() {
 
       if (rain > 0) {
         tickRainFx(rainFx, delta, rain, wind, w, h, surfaceRects);
-        drawRainFx(rainFx, ctx!, rain);
+        drawRainFx(rainFx, ctx!, rain, wind);
       }
 
       tickSnowFx(snowFx, delta, snow, wind, w, h, namedSurfaces);
@@ -104,9 +108,11 @@ export default function WeatherFxOverlay() {
     }
 
     rafId = requestAnimationFrame(loop);
+    const detachGust = attachGustTracker(engineRef.current);
 
     return () => {
       cancelAnimationFrame(rafId);
+      detachGust();
       window.removeEventListener("resize", resize);
     };
   }, [registry]);

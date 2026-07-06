@@ -157,15 +157,18 @@ export function drawRainFx(
   s: RainFxState,
   ctx: CanvasRenderingContext2D,
   intensity: number,
+  wind: number,
 ): void {
   ctx.lineCap = "round";
 
+  // 落下速度に対する横風の比で雨筋を傾ける
+  const slant = wind * 0.35;
   for (const d of s.drops) {
     ctx.strokeStyle = `rgba(180,200,220,${d.opacity * intensity})`;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(d.x, d.y);
-    ctx.lineTo(d.x, d.y + d.length);
+    ctx.lineTo(d.x + d.length * slant, d.y + d.length);
     ctx.stroke();
   }
 

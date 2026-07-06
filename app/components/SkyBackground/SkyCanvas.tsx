@@ -3,7 +3,13 @@
 import { useRef, useEffect } from "react";
 import type { SkyPhase, WeatherCondition } from "@/types/weather";
 import type { SkyDrawing } from "@/app/contexts/SkyDrawings";
-import { createWeatherEngine, setCondition, tick } from "./weatherEngine";
+import {
+  createWeatherEngine,
+  setCondition,
+  tick,
+  getEffectiveWind,
+} from "./weatherEngine";
+import { attachGustTracker } from "./gustTracker";
 
 type Props = {
   phase: SkyPhase;
@@ -737,6 +743,7 @@ function drawClouds(
   for (const cloud of clouds) {
     cloud.x += cloud.speed * (1 + wind * 2) * dt;
     if (cloud.x > w + cloud.width) cloud.x = -cloud.width;
+    else if (cloud.x < -cloud.width * 2) cloud.x = w;
 
     const c = ensureCloudCache(cloud);
     ctx.save();
@@ -754,26 +761,30 @@ function drawRain(
   dt: number,
   intensity: number,
   storminess: number,
+  wind: number,
 ) {
   if (intensity <= 0) return;
   const activeCount = Math.ceil(drops.length * Math.min(intensity, 1));
   const speedMul = 1 + storminess * 0.3;
   const windJitter = 0.2 + storminess * 0.2;
   const alpha = (0.4 + storminess * 0.15) * Math.max(0.4, Math.min(intensity * 1.2, 1));
+  const slant = 0.3 + wind * 0.6;
   ctx.strokeStyle = `rgba(193, 200, 231, ${alpha})`;
   ctx.lineWidth = 1 + storminess * 0.5;
   for (let i = 0; i < activeCount; i++) {
     const drop = drops[i];
     drop.y += drop.speed * speedMul * dt;
-    drop.x -= drop.speed * (0.1 + Math.random() * windJitter) * dt;
+    drop.x -= drop.speed * (0.1 + Math.random() * windJitter - wind * 0.5) * dt;
     if (drop.y > h) {
       drop.y = -drop.length;
       drop.x = Math.random() * w;
     }
+    if (drop.x < -30) drop.x += w + 60;
+    else if (drop.x > w + 30) drop.x -= w + 60;
 
     ctx.beginPath();
     ctx.moveTo(drop.x, drop.y);
-    ctx.lineTo(drop.x + drop.length * 0.3, drop.y + drop.length);
+    ctx.lineTo(drop.x + drop.length * slant, drop.y + drop.length);
     ctx.stroke();
   }
 }
@@ -856,6 +867,7 @@ function drawSnow(
   time: number,
   dt: number,
   intensity: number,
+  wind: number,
 ) {
   if (intensity <= 0) return;
   const activeCount = Math.ceil(flakes.length * Math.min(intensity, 1));
@@ -864,11 +876,16 @@ function drawSnow(
   for (let i = 0; i < activeCount; i++) {
     const flake = flakes[i];
     flake.y += flake.speed * dt;
-    flake.x += Math.sin(time * 0.001 + flake.driftOffset) * flake.drift * dt;
+    flake.x +=
+      (Math.sin(time * 0.001 + flake.driftOffset) * flake.drift +
+        wind * 1.5) *
+      dt;
     if (flake.y > h) {
       flake.y = -flake.radius;
       flake.x = Math.random() * w;
     }
+    if (flake.x < -10) flake.x += w + 20;
+    else if (flake.x > w + 10) flake.x -= w + 20;
 
     ctx.beginPath();
     ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
@@ -903,14 +920,15 @@ function drawDriftingDrawings(
     const windScale = 1 + wind * 2;
     d.x += d.speed * dt * windScale;
     if (d.x > w + d.displayWidth) d.x = -d.displayWidth;
+    else if (d.x < -d.displayWidth * 2) d.x = w;
 
-    const floatAmp = d.floatAmp * (1 + wind * 3);
+    const floatAmp = d.floatAmp * (1 + Math.abs(wind) * 3);
     const floatY =
       d.y + Math.sin(time * d.floatFreq + d.floatOffset) * floatAmp;
 
     ctx.save();
     ctx.globalAlpha = d.opacity;
-    if (wind > 0.1) {
+    if (Math.abs(wind) > 0.1) {
       ctx.translate(d.x + d.displayWidth / 2, floatY + d.displayHeight / 2);
       ctx.rotate(Math.sin(time * 0.001 + d.floatOffset) * wind * 0.15);
       ctx.drawImage(
@@ -1098,6 +1116,7 @@ export default function SkyCanvas({
       // 天候エンジン更新
       tick(engineRef.current, deltaMs);
       const channels = engineRef.current.current;
+      const effWind = getEffectiveWind(engineRef.current);
 
       const time = now - startTime;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1145,7 +1164,7 @@ export default function SkyCanvas({
           viewW,
           dt,
           channels.cloudCover,
-          channels.wind,
+          effWind,
         );
       }
 
@@ -1156,7 +1175,7 @@ export default function SkyCanvas({
           viewW,
           time,
           dt,
-          channels.wind,
+          effWind,
         );
       }
 
@@ -1169,6 +1188,7 @@ export default function SkyCanvas({
           dt,
           channels.rain,
           channels.lightning,
+          effWind,
         );
       }
 
@@ -1181,6 +1201,7 @@ export default function SkyCanvas({
           time,
           dt,
           channels.snow,
+          effWind,
         );
       }
 
@@ -1196,10 +1217,12 @@ export default function SkyCanvas({
     };
 
     animId = requestAnimationFrame(render);
+    const detachGust = attachGustTracker(engineRef.current);
 
     return () => {
       running = false;
       cancelAnimationFrame(animId);
+      detachGust();
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("resize", resize);
     };

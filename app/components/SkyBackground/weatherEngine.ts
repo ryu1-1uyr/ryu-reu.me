@@ -89,9 +89,13 @@ export type WeatherEngineState = {
   condition: WeatherCondition;
   prevCondition: WeatherCondition | null;
   transition: WeatherTransition | null;
+  /** ポインタ突風。符号付き（負は左向き）。addGust で加算され tick で減衰する */
+  gust: number;
 };
 
 const SETTLE_EPSILON = 0.005;
+const GUST_MAX = 1.5;
+const GUST_TAU = 1200;
 
 export function createWeatherEngine(
   initialCondition: WeatherCondition = "clear",
@@ -103,6 +107,7 @@ export function createWeatherEngine(
     condition: initialCondition,
     prevCondition: null,
     transition: null,
+    gust: 0,
   };
 }
 
@@ -134,6 +139,24 @@ export function tick(state: WeatherEngineState, deltaMs: number): void {
   if (settled && state.transition) {
     state.transition = null;
   }
+
+  if (state.gust !== 0) {
+    state.gust *= Math.exp(-deltaMs / GUST_TAU);
+    if (Math.abs(state.gust) < SETTLE_EPSILON) state.gust = 0;
+  }
+}
+
+/** ポインタ速度由来の突風インパルスを加算する。impulse は符号付き */
+export function addGust(state: WeatherEngineState, impulse: number): void {
+  state.gust = Math.max(-GUST_MAX, Math.min(GUST_MAX, state.gust + impulse));
+}
+
+/** 天候レシピの風 + 突風を合成した実効風速（符号付き） */
+export function getEffectiveWind(state: WeatherEngineState): number {
+  return Math.max(
+    -GUST_MAX,
+    Math.min(GUST_MAX, state.current.wind + state.gust),
+  );
 }
 
 export function getRecipe(

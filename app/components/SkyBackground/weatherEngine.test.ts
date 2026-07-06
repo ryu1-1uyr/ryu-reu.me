@@ -4,6 +4,8 @@ import {
   setCondition,
   tick,
   getRecipe,
+  addGust,
+  getEffectiveWind,
   type WeatherChannels,
 } from "./weatherEngine";
 
@@ -90,5 +92,37 @@ describe("weatherEngine", () => {
     const cloudProgress =
       engine.current.cloudCover / getRecipe("thunderstorm").cloudCover;
     expect(windProgress).toBeGreaterThan(cloudProgress);
+  });
+
+  it("accumulates gust impulses and clamps at the max", () => {
+    const engine = createWeatherEngine("clear");
+    addGust(engine, 0.5);
+    expect(engine.gust).toBeCloseTo(0.5);
+    for (let i = 0; i < 10; i++) addGust(engine, 0.5);
+    expect(engine.gust).toBe(1.5);
+    for (let i = 0; i < 30; i++) addGust(engine, -0.5);
+    expect(engine.gust).toBe(-1.5);
+  });
+
+  it("decays gust toward exactly zero on tick", () => {
+    const engine = createWeatherEngine("clear");
+    addGust(engine, 1);
+    tick(engine, 1200); // 1 tau で約 1/e に減衰
+    expect(engine.gust).toBeGreaterThan(0.3);
+    expect(engine.gust).toBeLessThan(0.45);
+    for (let i = 0; i < 600; i++) tick(engine, 16.67);
+    expect(engine.gust).toBe(0);
+  });
+
+  it("combines wind channel and gust into effective wind", () => {
+    const engine = createWeatherEngine("thunderstorm"); // wind: 0.7
+    expect(getEffectiveWind(engine)).toBeCloseTo(0.7);
+    addGust(engine, 0.4);
+    expect(getEffectiveWind(engine)).toBeCloseTo(1.1);
+    addGust(engine, 10); // 過剰なインパルスでも上限で頭打ち
+    expect(getEffectiveWind(engine)).toBe(1.5);
+    const calm = createWeatherEngine("clear");
+    addGust(calm, -0.8);
+    expect(getEffectiveWind(calm)).toBeCloseTo(-0.8); // 負の風（左向き）も許容
   });
 });
