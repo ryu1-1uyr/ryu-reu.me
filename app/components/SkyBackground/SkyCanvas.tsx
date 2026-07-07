@@ -690,6 +690,83 @@ function drawMoon(
   ctx.restore();
 }
 
+// 霧のソフトな円形ブロブをオフスクリーンに1回だけ焼く
+let fogBlobCache: HTMLCanvasElement | null = null;
+function ensureFogBlob(): HTMLCanvasElement {
+  if (fogBlobCache) return fogBlobCache;
+  const size = 256;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const fctx = c.getContext("2d")!;
+  const grd = fctx.createRadialGradient(
+    size / 2,
+    size / 2,
+    0,
+    size / 2,
+    size / 2,
+    size / 2,
+  );
+  grd.addColorStop(0, "rgba(226, 231, 240, 1)");
+  grd.addColorStop(0.6, "rgba(226, 231, 240, 0.5)");
+  grd.addColorStop(1, "rgba(226, 231, 240, 0)");
+  fctx.fillStyle = grd;
+  fctx.fillRect(0, 0, size, size);
+  fogBlobCache = c;
+  return c;
+}
+
+// 霧: ぼかした横長ブロブを3層、視差でゆっくり漂わせる。夜は月光がにじむ
+function drawFog(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  time: number,
+  intensity: number,
+  wind: number,
+  phase: SkyPhase,
+  progress: number,
+) {
+  if (intensity <= 0) return;
+  const blob = ensureFogBlob();
+
+  // 下ほど濃く速い（視差）。y は画面高さ比、speed は px/ms 相当
+  const layers = [
+    { y: 0.58, speed: 0.006, blobW: 0.6, blobH: 0.34, alpha: 0.1, count: 3 },
+    { y: 0.74, speed: 0.011, blobW: 0.7, blobH: 0.4, alpha: 0.14, count: 3 },
+    { y: 0.92, speed: 0.017, blobW: 0.85, blobH: 0.48, alpha: 0.18, count: 3 },
+  ];
+
+  ctx.save();
+  for (const layer of layers) {
+    const bw = w * layer.blobW;
+    const bh = h * layer.blobH;
+    const layerY = h * layer.y;
+    const spacing = w / layer.count;
+    // wind（符号付き）でドリフト方向・速度を変調
+    const drift = time * layer.speed * (1 + wind);
+    const offset = ((drift % spacing) + spacing) % spacing;
+    ctx.globalAlpha = layer.alpha * intensity;
+    for (let i = -1; i <= layer.count + 1; i++) {
+      const cx = i * spacing + offset;
+      ctx.drawImage(blob, cx - bw / 2, layerY - bh / 2, bw, bh);
+    }
+  }
+  ctx.restore();
+
+  // 夜: 月光が霧ににじむ（月位置にラジアルグラデを乗せる）
+  if (phase === "night") {
+    const angle = Math.PI * (0.1 + progress * 0.8);
+    const mx = w * (0.2 + progress * 0.6);
+    const my = h * (0.3 - Math.sin(angle) * 0.15);
+    const grd = ctx.createRadialGradient(mx, my, 0, mx, my, h * 0.55);
+    grd.addColorStop(0, `rgba(184, 193, 236, ${0.14 * intensity})`);
+    grd.addColorStop(1, "rgba(184, 193, 236, 0)");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, w, h);
+  }
+}
+
 // 雲の形をオフスクリーンCanvasに1回だけ焼く
 function ensureCloudCache(cloud: Cloud): CloudCache {
   if (cloud.cache) return cloud.cache;
@@ -1202,6 +1279,19 @@ export default function SkyCanvas({
           dt,
           channels.snow,
           effWind,
+        );
+      }
+
+      if (channels.fog > 0) {
+        drawFog(
+          ctx,
+          viewW,
+          viewH,
+          time,
+          channels.fog,
+          effWind,
+          phase,
+          phaseProgress,
         );
       }
 

@@ -6,7 +6,8 @@ export type WeatherCondition =
   | "rain"
   | "snow"
   | "drizzle"
-  | "thunderstorm";
+  | "thunderstorm"
+  | "fog";
 
 export type WeatherData = {
   condition: WeatherCondition;

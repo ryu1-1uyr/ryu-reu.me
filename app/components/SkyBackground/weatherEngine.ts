@@ -7,6 +7,7 @@ export type WeatherChannels = {
   darkness: number;
   lightning: number;
   wind: number;
+  fog: number;
 };
 
 const CHANNEL_KEYS: (keyof WeatherChannels)[] = [
@@ -16,6 +17,7 @@ const CHANNEL_KEYS: (keyof WeatherChannels)[] = [
   "darkness",
   "lightning",
   "wind",
+  "fog",
 ];
 
 const RECIPES: Record<WeatherCondition, WeatherChannels> = {
@@ -26,6 +28,7 @@ const RECIPES: Record<WeatherCondition, WeatherChannels> = {
     darkness: 0,
     lightning: 0,
     wind: 0,
+    fog: 0,
   },
   clouds: {
     rain: 0,
@@ -34,6 +37,7 @@ const RECIPES: Record<WeatherCondition, WeatherChannels> = {
     darkness: 0.15,
     lightning: 0,
     wind: 0.1,
+    fog: 0,
   },
   drizzle: {
     rain: 0.3,
@@ -42,6 +46,7 @@ const RECIPES: Record<WeatherCondition, WeatherChannels> = {
     darkness: 0.3,
     lightning: 0,
     wind: 0.15,
+    fog: 0,
   },
   rain: {
     rain: 1,
@@ -50,6 +55,7 @@ const RECIPES: Record<WeatherCondition, WeatherChannels> = {
     darkness: 0.7,
     lightning: 0,
     wind: 0.3,
+    fog: 0,
   },
   thunderstorm: {
     rain: 1,
@@ -58,6 +64,7 @@ const RECIPES: Record<WeatherCondition, WeatherChannels> = {
     darkness: 0.9,
     lightning: 1,
     wind: 0.7,
+    fog: 0,
   },
   snow: {
     rain: 0,
@@ -66,6 +73,16 @@ const RECIPES: Record<WeatherCondition, WeatherChannels> = {
     darkness: 0.6,
     lightning: 0,
     wind: 0.1,
+    fog: 0,
+  },
+  fog: {
+    rain: 0,
+    snow: 0,
+    cloudCover: 0.3,
+    darkness: 0.2,
+    lightning: 0,
+    wind: 0.08,
+    fog: 1,
   },
 };
 
@@ -76,6 +93,7 @@ const TIME_CONSTANTS: Record<keyof WeatherChannels, number> = {
   snow: 2500,
   lightning: 2000,
   wind: 1500,
+  fog: 5000,
 };
 
 export type WeatherTransition = {
