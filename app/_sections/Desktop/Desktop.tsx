@@ -5,8 +5,10 @@ import {
   WindowManagerProvider,
   useWindowManager,
 } from "@/app/contexts/WindowManager";
+import { SurfaceRegistryProvider } from "@/app/contexts/SurfaceRegistry";
 import RetroWindow from "@/app/components/RetroWindow";
 import Taskbar from "@/app/components/Taskbar";
+import WeatherFxOverlay from "@/app/components/WeatherFxOverlay/WeatherFxOverlay";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import {
   WINDOW_REGISTRY,
@@ -23,7 +25,7 @@ function DesktopInner({ contents }: Props) {
   const isMobile = useIsMobile();
 
   return (
-    <>
+    <SurfaceRegistryProvider>
       <main
         className={
           isMobile
@@ -51,6 +53,7 @@ function DesktopInner({ contents }: Props) {
               zIndex={!isMobile ? windows[def.id].zIndex : undefined}
               onClose={() => closeWindow(def.id)}
               onFocus={() => focusWindow(def.id)}
+              surfaceId={!isMobile ? def.id : undefined}
             >
               {content}
             </RetroWindow>
@@ -58,7 +61,8 @@ function DesktopInner({ contents }: Props) {
         })}
       </main>
       <Taskbar />
-    </>
+      {!isMobile && <WeatherFxOverlay />}
+    </SurfaceRegistryProvider>
   );
 }
 

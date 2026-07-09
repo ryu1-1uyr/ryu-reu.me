@@ -14,6 +14,7 @@ function mapCondition(id: number): WeatherCondition {
   if (id >= 300 && id < 400) return "drizzle";
   if (id >= 500 && id < 600) return "rain";
   if (id >= 600 && id < 700) return "snow";
+  if (id >= 700 && id < 800) return "fog";
   if (id >= 801) return "clouds";
   return "clear";
 }

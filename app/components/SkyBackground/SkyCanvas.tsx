@@ -3,6 +3,13 @@
 import { useRef, useEffect } from "react";
 import type { SkyPhase, WeatherCondition } from "@/types/weather";
 import type { SkyDrawing } from "@/app/contexts/SkyDrawings";
+import {
+  createWeatherEngine,
+  setCondition,
+  tick,
+  getEffectiveWind,
+} from "./weatherEngine";
+import { attachGustTracker } from "./gustTracker";
 
 type Props = {
   phase: SkyPhase;
@@ -36,25 +43,15 @@ function lerpColor(a: string, b: string, t: number): string {
     const v = parseInt(hex.slice(1), 16);
     return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
   };
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
   const [ar, ag, ab] = parse(a);
   const [br, bg, bb] = parse(b);
-  const r = Math.round(ar + (br - ar) * t);
-  const g = Math.round(ag + (bg - ag) * t);
-  const bl = Math.round(ab + (bb - ab) * t);
-  return `rgb(${r},${g},${bl})`;
+  const r = clamp(ar + (br - ar) * t);
+  const g = clamp(ag + (bg - ag) * t);
+  const bl = clamp(ab + (bb - ab) * t);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bl.toString(16).padStart(2, "0")}`;
 }
 
-// 雨系の天気で空をどんよりさせる
-// tint: 混ぜる先の色, amount: 混ぜる割合（0=元のまま, 1=完全にtint色）
-// 昼の場合、amountが0に近づいていくと空が暗くなる
-const WEATHER_TINT: Partial<
-  Record<WeatherCondition, { tint: string; amount: number }>
-> = {
-  drizzle: { tint: "#8a8a9a", amount: 0.25 },
-  rain: { tint: "#6b6b7d", amount: 1.2 },
-  thunderstorm: { tint: "#4a4a5c", amount: 0.55 },
-  snow: { tint: "#a0a0b0", amount: 1.1 },
-};
 
 // --- パーティクル型 ---
 type Star = { x: number; y: number; radius: number; twinkleOffset: number };
@@ -377,21 +374,26 @@ function createLightningState(): LightningState {
 function computeGradientColors(
   phase: SkyPhase,
   progress: number,
-  weather: WeatherCondition
+  darkness: number,
 ): [string, string, string] {
   const phaseIdx = PHASE_ORDER.indexOf(phase);
   const prevPhase = PHASE_ORDER[(phaseIdx - 1 + 4) % 4];
   const currentColors = SKY_COLORS[phase];
   const prevColors = SKY_COLORS[prevPhase];
 
-  const tintConfig = WEATHER_TINT[weather];
   const blendT = progress < 0.2 ? progress / 0.2 : 1;
+
+  const applyTint = phase !== "night" && phase !== "sunset" && darkness > 0;
+  const tintColor = applyTint
+    ? lerpColor("#a0a0b0", "#4a4a5c", Math.min(darkness, 1))
+    : "";
+  const tintAmount = darkness * 1.2;
 
   const colors: string[] = [];
   for (let i = 0; i < 3; i++) {
     let color = lerpColor(prevColors[i], currentColors[i], blendT);
-    if (phase !== "night" && phase !== "sunset" && tintConfig) {
-      color = lerpColor(color, tintConfig.tint, tintConfig.amount);
+    if (applyTint) {
+      color = lerpColor(color, tintColor, tintAmount);
     }
     colors.push(color);
   }
@@ -531,52 +533,24 @@ const MOON_CRATERS = [
   { dx: 0.25, dy: 0.35, r: 0.09 },
 ];
 
-function drawMoon(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  phase: SkyPhase,
-  progress: number
-) {
-  if (phase !== "night") return;
+const MOON_R = 28;
+const MOON_PAD = 4;
+let moonDiskCache: HTMLCanvasElement | null = null;
 
-  const R = 28;
-  const angle = Math.PI * (0.1 + progress * 0.8);
-  const cx = w * (0.2 + progress * 0.6);
-  const cy = h * (0.3 - Math.sin(angle) * 0.15);
+function ensureMoonDisk(): HTMLCanvasElement {
+  if (moonDiskCache) return moonDiskCache;
 
-  ctx.save();
-
-  // --- 1. 大気グロー（多層） ---
-  const glowLayers = [
-    { radius: R * 4.5, alpha: 0.03 },
-    { radius: R * 3.0, alpha: 0.06 },
-    { radius: R * 2.0, alpha: 0.1 },
-    { radius: R * 1.5, alpha: 0.15 },
-  ];
-  for (const gl of glowLayers) {
-    const grd = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, gl.radius);
-    grd.addColorStop(0, `rgba(184, 193, 236, ${gl.alpha})`);
-    grd.addColorStop(1, "rgba(184, 193, 236, 0)");
-    ctx.fillStyle = grd;
-    ctx.beginPath();
-    ctx.arc(cx, cy, gl.radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // --- 2〜6: オフスクリーンで月ディスクを描く ---
-  // destination-out がグローを巻き込まないように隔離する
-  const pad = 4;
+  const R = MOON_R;
+  const pad = MOON_PAD;
   const offSize = (R + pad) * 2;
   const off = document.createElement("canvas");
   off.width = offSize;
   off.height = offSize;
   const oc = off.getContext("2d")!;
-  // オフスクリーン上の月中心
   const ocx = R + pad;
   const ocy = R + pad;
 
-  // 地球照（暗い側のうっすらした光）
+  // 地球照
   oc.beginPath();
   oc.arc(ocx, ocy, R + 1, 0, Math.PI * 2);
   const earthshine = oc.createRadialGradient(
@@ -585,7 +559,7 @@ function drawMoon(
     R * 0.1,
     ocx,
     ocy,
-    R + 1
+    R + 1,
   );
   earthshine.addColorStop(0, "rgba(100, 120, 180, 0.12)");
   earthshine.addColorStop(0.6, "rgba(80, 100, 160, 0.06)");
@@ -593,7 +567,7 @@ function drawMoon(
   oc.fillStyle = earthshine;
   oc.fill();
 
-  // 月本体（球体グラデーション）
+  // 月本体
   oc.beginPath();
   oc.arc(ocx, ocy, R, 0, Math.PI * 2);
   const bodyGrad = oc.createRadialGradient(
@@ -602,7 +576,7 @@ function drawMoon(
     R * 0.1,
     ocx,
     ocy,
-    R
+    R,
   );
   bodyGrad.addColorStop(0, "#e8ecf8");
   bodyGrad.addColorStop(0.4, "#c8cfea");
@@ -622,7 +596,7 @@ function drawMoon(
       crr * 0.1,
       crx,
       cry,
-      crr
+      crr,
     );
     crGrad.addColorStop(0, "rgba(140, 148, 185, 0.25)");
     crGrad.addColorStop(0.7, "rgba(120, 128, 170, 0.15)");
@@ -633,8 +607,7 @@ function drawMoon(
     oc.fill();
   }
 
-  // #0d1b2a
-  // 三日月シャドウ（source-atop で月の上にだけ夜空色を重ねる）
+  // 三日月シャドウ
   oc.globalCompositeOperation = "source-atop";
   const shadowGrad = oc.createRadialGradient(
     ocx + R * 0.55,
@@ -642,7 +615,7 @@ function drawMoon(
     R * 0.5,
     ocx + R * 0.45,
     ocy - R * 0.3,
-    R * 1.02
+    R * 1.02,
   );
   const shadowColor = "rgba(11, 15, 39, 0.97)";
   shadowGrad.addColorStop(0, shadowColor);
@@ -663,7 +636,7 @@ function drawMoon(
     R * 0.6,
     ocx,
     ocy,
-    R
+    R,
   );
   rimGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
   rimGrad.addColorStop(0.85, "rgba(255, 255, 255, 0)");
@@ -672,10 +645,126 @@ function drawMoon(
   oc.fillStyle = rimGrad;
   oc.fill();
 
-  // オフスクリーンをメインキャンバスに転写
-  ctx.drawImage(off, cx - ocx, cy - ocy);
+  moonDiskCache = off;
+  return off;
+}
+
+function drawMoon(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  phase: SkyPhase,
+  progress: number,
+) {
+  if (phase !== "night") return;
+
+  const R = MOON_R;
+  const pad = MOON_PAD;
+  const angle = Math.PI * (0.1 + progress * 0.8);
+  const cx = w * (0.2 + progress * 0.6);
+  const cy = h * (0.3 - Math.sin(angle) * 0.15);
+
+  ctx.save();
+
+  // 大気グロー（位置依存 → キャッシュ不可）
+  const glowLayers = [
+    { radius: R * 4.5, alpha: 0.03 },
+    { radius: R * 3.0, alpha: 0.06 },
+    { radius: R * 2.0, alpha: 0.1 },
+    { radius: R * 1.5, alpha: 0.15 },
+  ];
+  for (const gl of glowLayers) {
+    const grd = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, gl.radius);
+    grd.addColorStop(0, `rgba(184, 193, 236, ${gl.alpha})`);
+    grd.addColorStop(1, "rgba(184, 193, 236, 0)");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(cx, cy, gl.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // キャッシュ済み月ディスク
+  const disk = ensureMoonDisk();
+  ctx.drawImage(disk, cx - (R + pad), cy - (R + pad));
 
   ctx.restore();
+}
+
+// 霧のソフトな円形ブロブをオフスクリーンに1回だけ焼く
+let fogBlobCache: HTMLCanvasElement | null = null;
+function ensureFogBlob(): HTMLCanvasElement {
+  if (fogBlobCache) return fogBlobCache;
+  const size = 256;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const fctx = c.getContext("2d")!;
+  const grd = fctx.createRadialGradient(
+    size / 2,
+    size / 2,
+    0,
+    size / 2,
+    size / 2,
+    size / 2,
+  );
+  grd.addColorStop(0, "rgba(226, 231, 240, 1)");
+  grd.addColorStop(0.6, "rgba(226, 231, 240, 0.5)");
+  grd.addColorStop(1, "rgba(226, 231, 240, 0)");
+  fctx.fillStyle = grd;
+  fctx.fillRect(0, 0, size, size);
+  fogBlobCache = c;
+  return c;
+}
+
+// 霧: ぼかした横長ブロブを3層、視差でゆっくり漂わせる。夜は月光がにじむ
+function drawFog(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  time: number,
+  intensity: number,
+  wind: number,
+  phase: SkyPhase,
+  progress: number,
+) {
+  if (intensity <= 0) return;
+  const blob = ensureFogBlob();
+
+  // 下ほど濃く速い（視差）。y は画面高さ比、speed は px/ms 相当
+  const layers = [
+    { y: 0.58, speed: 0.006, blobW: 0.6, blobH: 0.34, alpha: 0.1, count: 3 },
+    { y: 0.74, speed: 0.011, blobW: 0.7, blobH: 0.4, alpha: 0.14, count: 3 },
+    { y: 0.92, speed: 0.017, blobW: 0.85, blobH: 0.48, alpha: 0.18, count: 3 },
+  ];
+
+  ctx.save();
+  for (const layer of layers) {
+    const bw = w * layer.blobW;
+    const bh = h * layer.blobH;
+    const layerY = h * layer.y;
+    const spacing = w / layer.count;
+    // wind（符号付き）でドリフト方向・速度を変調
+    const drift = time * layer.speed * (1 + wind);
+    const offset = ((drift % spacing) + spacing) % spacing;
+    ctx.globalAlpha = layer.alpha * intensity;
+    for (let i = -1; i <= layer.count + 1; i++) {
+      const cx = i * spacing + offset;
+      ctx.drawImage(blob, cx - bw / 2, layerY - bh / 2, bw, bh);
+    }
+  }
+  ctx.restore();
+
+  // 夜: 月光が霧ににじむ（月位置にラジアルグラデを乗せる）
+  if (phase === "night") {
+    const angle = Math.PI * (0.1 + progress * 0.8);
+    const mx = w * (0.2 + progress * 0.6);
+    const my = h * (0.3 - Math.sin(angle) * 0.15);
+    const grd = ctx.createRadialGradient(mx, my, 0, mx, my, h * 0.55);
+    grd.addColorStop(0, `rgba(184, 193, 236, ${0.14 * intensity})`);
+    grd.addColorStop(1, "rgba(184, 193, 236, 0)");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, w, h);
+  }
 }
 
 // 雲の形をオフスクリーンCanvasに1回だけ焼く
@@ -724,15 +813,18 @@ function drawClouds(
   ctx: CanvasRenderingContext2D,
   clouds: Cloud[],
   w: number,
-  dt: number
+  dt: number,
+  cloudCover: number,
+  wind: number,
 ) {
   for (const cloud of clouds) {
-    cloud.x += cloud.speed * dt;
+    cloud.x += cloud.speed * (1 + wind * 2) * dt;
     if (cloud.x > w + cloud.width) cloud.x = -cloud.width;
+    else if (cloud.x < -cloud.width * 2) cloud.x = w;
 
     const c = ensureCloudCache(cloud);
     ctx.save();
-    ctx.globalAlpha = cloud.opacity;
+    ctx.globalAlpha = cloud.opacity * cloudCover;
     ctx.drawImage(c.canvas, cloud.x + c.ox, cloud.y + c.oy);
     ctx.restore();
   }
@@ -743,26 +835,33 @@ function drawRain(
   drops: Raindrop[],
   h: number,
   w: number,
-  isThunderstorm = false,
-  dt = 1
+  dt: number,
+  intensity: number,
+  storminess: number,
+  wind: number,
 ) {
-  const speedMul = isThunderstorm ? 1.3 : 1;
-  const windJitter = isThunderstorm ? 0.4 : 0.2;
-  ctx.strokeStyle = isThunderstorm
-    ? "rgba(193, 200, 231, 0.55)"
-    : "rgba(193, 200, 231, 0.4)";
-  ctx.lineWidth = isThunderstorm ? 1.5 : 1;
-  for (const drop of drops) {
+  if (intensity <= 0) return;
+  const activeCount = Math.ceil(drops.length * Math.min(intensity, 1));
+  const speedMul = 1 + storminess * 0.3;
+  const windJitter = 0.2 + storminess * 0.2;
+  const alpha = (0.4 + storminess * 0.15) * Math.max(0.4, Math.min(intensity * 1.2, 1));
+  const slant = 0.3 + wind * 0.6;
+  ctx.strokeStyle = `rgba(193, 200, 231, ${alpha})`;
+  ctx.lineWidth = 1 + storminess * 0.5;
+  for (let i = 0; i < activeCount; i++) {
+    const drop = drops[i];
     drop.y += drop.speed * speedMul * dt;
-    drop.x -= drop.speed * (0.1 + Math.random() * windJitter) * dt;
+    drop.x -= drop.speed * (0.1 + Math.random() * windJitter - wind * 0.5) * dt;
     if (drop.y > h) {
       drop.y = -drop.length;
       drop.x = Math.random() * w;
     }
+    if (drop.x < -30) drop.x += w + 60;
+    else if (drop.x > w + 30) drop.x -= w + 60;
 
     ctx.beginPath();
     ctx.moveTo(drop.x, drop.y);
-    ctx.lineTo(drop.x + drop.length * 0.3, drop.y + drop.length);
+    ctx.lineTo(drop.x + drop.length * slant, drop.y + drop.length);
     ctx.stroke();
   }
 }
@@ -813,22 +912,22 @@ function tickLightning(
   state: LightningState,
   w: number,
   h: number,
-  deltaMs: number
+  deltaMs: number,
+  canSpawn: boolean,
 ) {
   if (state.active) {
     state.remainingMs -= deltaMs;
-    // 60fps 換算で 0.7^1 のペースで減衰
     state.flashOpacity *= Math.pow(0.7, deltaMs / (1000 / 60));
     if (state.remainingMs <= 0) {
       state.active = false;
       state.flashOpacity = 0;
       state.nextStrikeMs = 2000 + Math.random() * 5000;
     }
-  } else {
+  } else if (canSpawn) {
     state.nextStrikeMs -= deltaMs;
     if (state.nextStrikeMs <= 0) {
       state.active = true;
-      const duration = 67; // ~4フレーム分 (ms)
+      const duration = 67;
       state.remainingMs = duration;
       state.durationMs = duration;
       state.flashOpacity = 0.12 + Math.random() * 0.08;
@@ -843,16 +942,27 @@ function drawSnow(
   h: number,
   w: number,
   time: number,
-  dt = 1
+  dt: number,
+  intensity: number,
+  wind: number,
 ) {
-  ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-  for (const flake of flakes) {
+  if (intensity <= 0) return;
+  const activeCount = Math.ceil(flakes.length * Math.min(intensity, 1));
+  const alpha = 0.8 * Math.max(0.4, Math.min(intensity * 1.2, 1));
+  ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+  for (let i = 0; i < activeCount; i++) {
+    const flake = flakes[i];
     flake.y += flake.speed * dt;
-    flake.x += Math.sin(time * 0.001 + flake.driftOffset) * flake.drift * dt;
+    flake.x +=
+      (Math.sin(time * 0.001 + flake.driftOffset) * flake.drift +
+        wind * 1.5) *
+      dt;
     if (flake.y > h) {
       flake.y = -flake.radius;
       flake.x = Math.random() * w;
     }
+    if (flake.x < -10) flake.x += w + 20;
+    else if (flake.x > w + 10) flake.x -= w + 20;
 
     ctx.beginPath();
     ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
@@ -880,18 +990,34 @@ function drawDriftingDrawings(
   drawings: DriftingDrawing[],
   w: number,
   time: number,
-  dt = 1
+  dt: number,
+  wind: number,
 ) {
   for (const d of drawings) {
-    d.x += d.speed * dt;
+    const windScale = 1 + wind * 2;
+    d.x += d.speed * dt * windScale;
     if (d.x > w + d.displayWidth) d.x = -d.displayWidth;
+    else if (d.x < -d.displayWidth * 2) d.x = w;
 
+    const floatAmp = d.floatAmp * (1 + Math.abs(wind) * 3);
     const floatY =
-      d.y + Math.sin(time * d.floatFreq + d.floatOffset) * d.floatAmp;
+      d.y + Math.sin(time * d.floatFreq + d.floatOffset) * floatAmp;
 
     ctx.save();
     ctx.globalAlpha = d.opacity;
-    ctx.drawImage(d.image, d.x, floatY, d.displayWidth, d.displayHeight);
+    if (Math.abs(wind) > 0.1) {
+      ctx.translate(d.x + d.displayWidth / 2, floatY + d.displayHeight / 2);
+      ctx.rotate(Math.sin(time * 0.001 + d.floatOffset) * wind * 0.15);
+      ctx.drawImage(
+        d.image,
+        -d.displayWidth / 2,
+        -d.displayHeight / 2,
+        d.displayWidth,
+        d.displayHeight,
+      );
+    } else {
+      ctx.drawImage(d.image, d.x, floatY, d.displayWidth, d.displayHeight);
+    }
     ctx.restore();
   }
 }
@@ -913,6 +1039,18 @@ export default function SkyCanvas({
   const shootingRef = useRef<ShootingStarState>(createShootingStarState());
   const driftingDrawingsRef = useRef<DriftingDrawing[]>([]);
   const initedRef = useRef(false);
+  const engineRef = useRef(createWeatherEngine(weatherCondition));
+
+  // props → ref（ループはここから毎フレーム読む）
+  const propsRef = useRef({ phase, phaseProgress, targetFps });
+  useEffect(() => {
+    propsRef.current = { phase, phaseProgress, targetFps };
+  }, [phase, phaseProgress, targetFps]);
+
+  // condition 変更 → エンジンのターゲット更新
+  useEffect(() => {
+    setCondition(engineRef.current, weatherCondition);
+  }, [weatherCondition]);
 
   // skyDrawings の変化を driftingDrawingsRef に同期
   useEffect(() => {
@@ -926,17 +1064,16 @@ export default function SkyCanvas({
 
       const img = new Image();
       img.onload = () => {
-        const targetSize = 80 + Math.random() * 120; // 80〜200px でランダム
+        const targetSize = 80 + Math.random() * 120;
         const scale = Math.min(
           targetSize / drawing.width,
-          targetSize / drawing.height
+          targetSize / drawing.height,
         );
         const displayWidth = drawing.width * scale;
         const displayHeight = drawing.height * scale;
         const w = window.innerWidth;
         const h = window.innerHeight;
 
-        // 上限超えたら古いの除去
         if (driftingDrawingsRef.current.length >= maxDrawings) {
           driftingDrawingsRef.current.shift();
         }
@@ -944,21 +1081,22 @@ export default function SkyCanvas({
         driftingDrawingsRef.current.push({
           id: drawing.id,
           image: img,
-          x: -displayWidth, // 左端から流れてくる
-          y: Math.random() * h * 0.6 + h * 0.05, // 上5%〜65%の広い範囲
+          x: -displayWidth,
+          y: Math.random() * h * 0.6 + h * 0.05,
           displayWidth,
           displayHeight,
-          speed: 0.15 + Math.random() * 0.85, // 0.15〜1.0 でランダム
+          speed: 0.15 + Math.random() * 0.85,
           opacity: Math.random() * 0.3 + 0.4,
-          floatOffset: Math.random() * Math.PI * 2, // 各描画ごとに位相をずらす
-          floatAmp: 8 + Math.random() * 35, // 8〜8*35 の上下振れ幅
-          floatFreq: 0.0003 + Math.random() * 0.0004, // ゆっくり〜少し速めの周期
+          floatOffset: Math.random() * Math.PI * 2,
+          floatAmp: 8 + Math.random() * 35,
+          floatFreq: 0.0003 + Math.random() * 0.0004,
         });
       };
       img.src = drawing.dataURL;
     }
   }, [skyDrawings]);
 
+  // rAF ループ（マウント時に 1 本だけ起動）
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -966,9 +1104,8 @@ export default function SkyCanvas({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // prefers-reduced-motion チェック
     const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
+      "(prefers-reduced-motion: reduce)",
     ).matches;
 
     const isMobile = window.innerWidth < 768;
@@ -987,7 +1124,6 @@ export default function SkyCanvas({
     const w = () => window.innerWidth;
     const h = () => window.innerHeight;
 
-    // パーティクル初期化（1回だけ）
     if (!initedRef.current) {
       starsRef.current = createStars(isMobile ? 60 : 150, w(), h());
       rainRef.current = createRain(isMobile ? 80 : 200, w(), h());
@@ -1001,129 +1137,186 @@ export default function SkyCanvas({
     const startTime = performance.now();
     let prevTime = startTime;
 
-    // グラデーション色はphase/progress/weatherが同じ間は不変なのでループ外で1回だけ計算
-    const gradColors = computeGradientColors(
-      phase,
-      phaseProgress,
-      weatherCondition
-    );
-    let gradCache: { h: number; grad: CanvasGradient } | null = null;
-
-    // reducedMotion: グラデーションだけ 1 回描いて終了、ループしない
     if (reducedMotion) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawSkyGradient(ctx, w(), h(), gradColors, null);
+      const { phase: p, phaseProgress: pp } = propsRef.current;
+      const darkness = engineRef.current.current.darkness;
+      drawSkyGradient(
+        ctx,
+        w(),
+        h(),
+        computeGradientColors(p, pp, darkness),
+        null,
+      );
       return () => {
         window.removeEventListener("resize", resize);
       };
     }
 
-    // タブの表示/非表示でアニメーションを一時停止・再開
     const handleVisibility = () => {
       if (document.hidden) {
         cancelAnimationFrame(animId);
         running = false;
-      } else {
-        if (!running) {
-          running = true;
-          prevTime = performance.now(); // タブ復帰時の巨大 dt を防止
-          animId = requestAnimationFrame(render);
-        }
+      } else if (!running) {
+        running = true;
+        prevTime = performance.now();
+        animId = requestAnimationFrame(render);
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
-    const frameInterval = targetFps < 60 ? 1000 / targetFps : 0;
+    let gradMemoKey = "";
+    let gradMemoColors: [string, string, string] = ["#000", "#000", "#000"];
+    let gradCache: { h: number; grad: CanvasGradient } | null = null;
     let lastRenderTime = startTime;
 
     const render = () => {
       if (!running) return;
 
       const now = performance.now();
+      const {
+        phase,
+        phaseProgress,
+        targetFps: fps,
+      } = propsRef.current;
+      const frameInterval = fps < 60 ? 1000 / fps : 0;
 
-      // FPS 制限: 目標フレーム間隔に達してなければスキップ
       if (frameInterval > 0 && now - lastRenderTime < frameInterval) {
         animId = requestAnimationFrame(render);
         return;
       }
       lastRenderTime = now;
-      const deltaMs = Math.min(now - prevTime, 100); // タブ復帰時のジャンプ防止
-      const dt = deltaMs / (1000 / 60); // 60fps を基準とした比率
+      const deltaMs = Math.min(now - prevTime, 100);
+      const dt = deltaMs / (1000 / 60);
       prevTime = now;
+
+      // 天候エンジン更新
+      tick(engineRef.current, deltaMs);
+      const channels = engineRef.current.current;
+      const effWind = getEffectiveWind(engineRef.current);
 
       const time = now - startTime;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const cw = w();
-      const ch = h();
+      const viewW = w();
+      const viewH = h();
 
-      gradCache = drawSkyGradient(ctx, cw, ch, gradColors, gradCache);
+      // グラデーション（darkness 変化時のみ再計算）
+      const qDarkness = Math.round(channels.darkness * 20) / 20;
+      const gKey = `${phase}-${Math.round(phaseProgress * 200)}-${qDarkness}`;
+      if (gKey !== gradMemoKey) {
+        gradMemoColors = computeGradientColors(
+          phase,
+          phaseProgress,
+          channels.darkness,
+        );
+        gradMemoKey = gKey;
+        gradCache = null;
+      }
+      gradCache = drawSkyGradient(
+        ctx,
+        viewW,
+        viewH,
+        gradMemoColors,
+        gradCache,
+      );
 
       drawStars(ctx, starsRef.current, time, phase, phaseProgress);
 
-      // 流れ星（星と同じ層、月より奥）
       tickShootingStars(
         shootingRef.current,
-        cw,
-        ch,
+        viewW,
+        viewH,
         deltaMs,
-        phase === "night"
+        phase === "night",
       );
       drawShootingStars(ctx, shootingRef.current);
 
-      drawSun(ctx, cw, ch, phase, phaseProgress, time);
-      drawMoon(ctx, cw, ch, phase, phaseProgress);
+      drawSun(ctx, viewW, viewH, phase, phaseProgress, time);
+      drawMoon(ctx, viewW, viewH, phase, phaseProgress);
 
-      if (
-        weatherCondition === "clouds" ||
-        weatherCondition === "rain" ||
-        weatherCondition === "drizzle" ||
-        weatherCondition === "thunderstorm" ||
-        weatherCondition === "snow"
-      ) {
-        drawClouds(ctx, cloudsRef.current, cw, dt);
-      }
-
-      // お絵描きドリフト（雲と同じ層）
-      if (driftingDrawingsRef.current.length > 0) {
-        drawDriftingDrawings(ctx, driftingDrawingsRef.current, cw, time, dt);
-      }
-
-      if (
-        weatherCondition === "rain" ||
-        weatherCondition === "drizzle" ||
-        weatherCondition === "thunderstorm"
-      ) {
-        drawRain(
+      if (channels.cloudCover > 0) {
+        drawClouds(
           ctx,
-          rainRef.current,
-          ch,
-          cw,
-          weatherCondition === "thunderstorm",
-          dt
+          cloudsRef.current,
+          viewW,
+          dt,
+          channels.cloudCover,
+          effWind,
         );
       }
 
-      if (weatherCondition === "snow") {
-        drawSnow(ctx, snowRef.current, ch, cw, time, dt);
+      if (driftingDrawingsRef.current.length > 0) {
+        drawDriftingDrawings(
+          ctx,
+          driftingDrawingsRef.current,
+          viewW,
+          time,
+          dt,
+          effWind,
+        );
       }
 
-      if (weatherCondition === "thunderstorm") {
-        tickLightning(lightningRef.current, cw, ch, deltaMs);
-        drawLightning(ctx, cw, ch, lightningRef.current);
+      if (channels.rain > 0) {
+        drawRain(
+          ctx,
+          rainRef.current,
+          viewH,
+          viewW,
+          dt,
+          channels.rain,
+          channels.lightning,
+          effWind,
+        );
+      }
+
+      if (channels.snow > 0) {
+        drawSnow(
+          ctx,
+          snowRef.current,
+          viewH,
+          viewW,
+          time,
+          dt,
+          channels.snow,
+          effWind,
+        );
+      }
+
+      if (channels.fog > 0) {
+        drawFog(
+          ctx,
+          viewW,
+          viewH,
+          time,
+          channels.fog,
+          effWind,
+          phase,
+          phaseProgress,
+        );
+      }
+
+      const ls = lightningRef.current;
+      if (channels.lightning > 0 || ls.active) {
+        tickLightning(ls, viewW, viewH, deltaMs, channels.lightning > 0.8);
+      }
+      if (ls.active || ls.flashOpacity > 0) {
+        drawLightning(ctx, viewW, viewH, ls);
       }
 
       animId = requestAnimationFrame(render);
     };
 
     animId = requestAnimationFrame(render);
+    const detachGust = attachGustTracker(engineRef.current);
 
     return () => {
       running = false;
       cancelAnimationFrame(animId);
+      detachGust();
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("resize", resize);
     };
-  }, [phase, phaseProgress, weatherCondition]);
+  }, []);
 
   return <canvas ref={canvasRef} className="block w-full h-full" />;
 }

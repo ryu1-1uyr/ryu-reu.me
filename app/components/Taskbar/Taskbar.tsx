@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useWindowManager, type WindowId } from "@/app/contexts/WindowManager";
+import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
 import StartMenu from "./StartMenu";
 import { useIsClient } from "@/app/hooks/useIsClient";
 import { useClickOutside } from "@/app/hooks/useClickOutside";
@@ -23,6 +24,15 @@ export default function Taskbar() {
   // const { windows, focusWindow, openWindow } = useWindowManager();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
+  const registry = useSurfaceRegistry();
+
+  useEffect(() => {
+    if (!registry || !footerRef.current) return;
+    const el = footerRef.current;
+    registry.register("taskbar", el);
+    return () => registry.unregister("taskbar");
+  }, [registry]);
   const [selectedEmoji, setEmoji] = useState(() => {
     return isClient
       ? EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)]
@@ -32,7 +42,7 @@ export default function Taskbar() {
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-50 h-10 bg-elements-background/90 backdrop-blur-md border-t-2 border-illustration-stroke flex items-center px-2 gap-1">
+    <footer ref={footerRef} className="fixed bottom-0 left-0 right-0 z-50 h-10 bg-elements-background/90 backdrop-blur-md border-t-2 border-illustration-stroke flex items-center px-2 gap-1">
       <div ref={menuRef} className="relative">
         <StartMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
         <button

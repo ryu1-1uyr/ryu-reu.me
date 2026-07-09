@@ -13,6 +13,7 @@ const WEATHER_OPTIONS: {
   { emoji: "☔️", label: "あめ", condition: "rain" },
   { emoji: "❄️", label: "ゆき", condition: "snow" },
   { emoji: "⚡️", label: "かみなり", condition: "thunderstorm" },
+  { emoji: "🌫️", label: "きり", condition: "fog" },
 ];
 
 export default function WeatherControl() {
