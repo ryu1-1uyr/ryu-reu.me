@@ -2,34 +2,48 @@
 
 import { useEffect, useRef } from "react";
 import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
+import { useWeatherFxBus } from "@/app/contexts/WeatherFxBus";
+import { useWeatherData } from "@/app/hooks/useWeatherData";
+import { useSkyPhase } from "@/app/hooks/useSkyPhase";
+import { getEffectiveWind } from "@/app/components/SkyBackground/weatherEngine";
+import { stompSnow } from "@/app/components/WeatherFxOverlay/snowFx";
 import {
+  CALM_ENV,
   createResident,
   tick,
   hop,
   type Platform,
+  type ResidentEnv,
   type ResidentState,
 } from "./residentEngine";
+import { computePose } from "./residentPose";
+import { placeholderSkin } from "./skins/placeholderSkin";
 
-/** スプライトの一辺 (px)。足元中心座標から左上へ変換するのに使う */
-const SIZE = 26;
+const skin = placeholderSkin;
 
 /**
- * デスクトップの住人（プロトタイプ）。
+ * デスクトップの住人。
  * SurfaceRegistry のウィンドウ・タスクバー上辺を足場に歩き回る。
- * 描画は DOM 要素 + transform（将来クリック等のインタラクションを持たせるため）。
+ * このコンポーネントは位置 transform・rAF・入力・環境収集のみを担当し、
+ * 見た目はすべて skin（ResidentSkin）経由で描画する。
  */
 export default function Resident() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const eyesRef = useRef<HTMLDivElement>(null);
   const registry = useSurfaceRegistry();
+  const bus = useWeatherFxBus();
   const stateRef = useRef<ResidentState | null>(null);
+
+  // 時間帯は 60 秒毎に再計算されるため、ref 転写で rAF effect の再実行を避ける
+  const { weatherData } = useWeatherData();
+  const { phase } = useSkyPhase(weatherData?.sunrise, weatherData?.sunset);
+  const isNightRef = useRef(false);
+  useEffect(() => {
+    isNightRef.current = phase === "night";
+  }, [phase]);
 
   useEffect(() => {
     const root = rootRef.current;
-    const body = bodyRef.current;
-    const eyes = eyesRef.current;
-    if (!root || !body || !eyes || !registry) return;
+    if (!root || !registry) return;
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       root.style.display = "none";
@@ -39,9 +53,20 @@ export default function Resident() {
     const viewport = { width: window.innerWidth, height: window.innerHeight };
     const state = createResident(viewport);
     stateRef.current = state;
+    const skinInstance = skin.mount(root);
+
+    // 視線追従用: 最後のポインタ位置
+    let pointerPos: { x: number; y: number } | null = null;
+    const onPointerMove = (e: PointerEvent) => {
+      pointerPos = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
 
     let rafId = 0;
     let lastTime = 0;
+    // 積雪の踏み散らし: 前回 stomp した位置と直前の状態名
+    let lastStompX = Infinity;
+    let prevName = state.name;
 
     function loop(time: number) {
       rafId = requestAnimationFrame(loop);
@@ -60,55 +85,67 @@ export default function Resident() {
         platforms.push({ id, x: r.x, y: r.y, width: r.width });
       });
 
-      tick(state, delta, platforms, viewport);
+      // 環境入力: 共有エンジンの補間済みチャンネル値（bus がなければ無風・晴天扱い）
+      const engine = bus?.getEngine();
+      const env: ResidentEnv = engine
+        ? {
+            rain: engine.current.rain,
+            snow: engine.current.snow,
+            wind: getEffectiveWind(engine),
+            lightning: engine.current.lightning,
+            isNight: isNightRef.current,
+          }
+        : { ...CALM_ENV, isNight: isNightRef.current };
 
-      // 歩行ボブ・着地スカッシュ・落下ストレッチ
-      let bobY = 0;
-      let squashY = 1;
-      if (state.name === "walk") {
-        bobY = Math.abs(Math.sin(state.stateTime / 90)) * -1.5;
-      } else if (state.name === "land") {
-        const t = Math.min(state.stateTime / state.stateDuration, 1);
-        squashY = 0.72 + 0.28 * t;
-      } else if (state.name === "fall") {
-        squashY = 1.12;
+      tick(state, delta, platforms, viewport, Math.random, env);
+
+      // 積雪の踏み散らし: 着地時は広めに、歩行中は 6px 進むごとに足元を蹴散らす
+      const snowFx = bus?.getSnowFx();
+      if (snowFx && state.platformId) {
+        if (state.name === "land" && prevName !== "land") {
+          stompSnow(snowFx, state.platformId, state.x, 10);
+          lastStompX = state.x;
+        } else if (state.name === "walk" || state.name === "shelterSeek") {
+          if (Math.abs(state.x - lastStompX) >= 6) {
+            stompSnow(snowFx, state.platformId, state.x, 6);
+            lastStompX = state.x;
+          }
+        }
       }
+      prevName = state.name;
 
-      root!.style.transform = `translate3d(${state.x - SIZE / 2}px, ${
-        state.y - SIZE + bobY
+      const pose = computePose(state, env, time);
+      root!.style.transform = `translate3d(${state.x - skin.size / 2}px, ${
+        state.y - skin.size + pose.bobY
       }px, 0)`;
-      body!.style.transform = `scaleX(${state.facing}) scaleY(${squashY})`;
-
-      // まばたき（約 3.4 秒周期で 120ms 閉じる）
-      eyes!.style.transform = time % 3400 < 120 ? "scaleY(0.15)" : "scaleY(1)";
+      // 目（体の中心付近）から見たポインタの相対位置
+      const pointer = pointerPos
+        ? {
+            dx: pointerPos.x - state.x,
+            dy: pointerPos.y - (state.y - skin.size / 2),
+          }
+        : undefined;
+      skinInstance.apply(pose, state.facing, pointer);
     }
 
     rafId = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(rafId);
+      window.removeEventListener("pointermove", onPointerMove);
+      skinInstance.unmount();
       stateRef.current = null;
     };
-  }, [registry]);
+  }, [registry, bus]);
 
   return (
     <div
       ref={rootRef}
       className="fixed left-0 top-0 z-[55] cursor-pointer select-none will-change-transform"
-      style={{ width: SIZE, height: SIZE }}
+      style={{ width: skin.size, height: skin.size }}
       onPointerDown={() => {
         if (stateRef.current) hop(stateRef.current);
       }}
       aria-hidden="true"
-    >
-      <div
-        ref={bodyRef}
-        className="relative h-full w-full origin-bottom rounded-[9px] border-2 border-illustration-stroke bg-elements-button"
-      >
-        <div ref={eyesRef} className="absolute inset-0">
-          <span className="absolute left-[7px] top-[9px] h-[5px] w-[3px] rounded-full bg-illustration-stroke" />
-          <span className="absolute right-[7px] top-[9px] h-[5px] w-[3px] rounded-full bg-illustration-stroke" />
-        </div>
-      </div>
-    </div>
+    />
   );
 }

@@ -255,15 +255,20 @@ export function tickSnowFx(
   }
 }
 
-function collapseSnow(
+/** [fromCol, toCol] の範囲の列を崩してパーティクル化する。崩した高さの合計 (px) を返す */
+function collapseColumns(
   s: SnowFxState,
   acc: SnowAccumulation,
   rect: SurfaceRect,
-): void {
-  for (let c = 0; c < acc.columns.length; c++) {
+  fromCol: number,
+  toCol: number,
+): number {
+  let collapsed = 0;
+  for (let c = fromCol; c <= toCol; c++) {
     const height = acc.columns[c];
     acc.columns[c] = 0;
     if (height < 0.5) continue;
+    collapsed += height;
     const count = Math.min(
       Math.ceil(height / 3),
       MAX_COLLAPSE - s.collapseParticles.length,
@@ -279,6 +284,49 @@ function collapseSnow(
       });
     }
   }
+  return collapsed;
+}
+
+function collapseSnow(
+  s: SnowFxState,
+  acc: SnowAccumulation,
+  rect: SurfaceRect,
+): void {
+  collapseColumns(s, acc, rect, 0, acc.columns.length - 1);
+}
+
+/**
+ * worldX を中心に半径 radiusPx の範囲の積雪を蹴散らす（マスコットの足踏み用）。
+ * 崩した高さの合計 (px) を返す。surfaceId が未登録なら何もせず 0。
+ * rect は acc.prevX / prevY と列数から復元する（呼び出し側が rect を持ち回らずに済む）。
+ */
+export function stompSnow(
+  s: SnowFxState,
+  surfaceId: string,
+  worldX: number,
+  radiusPx: number,
+): number {
+  const acc = s.accumulations.get(surfaceId);
+  if (!acc) return 0;
+
+  const rect: SurfaceRect = {
+    x: acc.prevX,
+    y: acc.prevY,
+    width: acc.columns.length * COL_WIDTH,
+    height: 0,
+  };
+
+  const fromCol = Math.max(
+    0,
+    Math.floor((worldX - radiusPx - acc.prevX) / COL_WIDTH),
+  );
+  const toCol = Math.min(
+    acc.columns.length - 1,
+    Math.floor((worldX + radiusPx - acc.prevX) / COL_WIDTH),
+  );
+  if (fromCol > toCol) return 0;
+
+  return collapseColumns(s, acc, rect, fromCol, toCol);
 }
 
 function smoothedColumns(columns: number[]): number[] {

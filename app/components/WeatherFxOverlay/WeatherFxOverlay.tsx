@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
+import { useWeatherFxBus } from "@/app/contexts/WeatherFxBus";
 import { useWeatherData } from "@/app/hooks/useWeatherData";
 import { useWeatherOverride } from "@/app/contexts/WeatherOverride";
 import {
@@ -30,19 +31,27 @@ import {
 export default function WeatherFxOverlay() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const registry = useSurfaceRegistry();
+  const bus = useWeatherFxBus();
   const { weatherData, isLoading } = useWeatherData();
   const { override } = useWeatherOverride();
 
   const weatherCondition =
     override ?? (!isLoading && weatherData ? weatherData.condition : "clear");
 
-  const engineRef = useRef<WeatherEngineState>(
-    createWeatherEngine(weatherCondition),
-  );
+  // bus があれば共有エンジンを使い、なければローカルにフォールバック
+  // （ref はレンダー中に触れないため、解決は effect 内から呼ぶ）
+  const localEngineRef = useRef<WeatherEngineState | null>(null);
+  const resolveEngine = useCallback((): WeatherEngineState => {
+    if (bus) return bus.getEngine();
+    if (localEngineRef.current === null) {
+      localEngineRef.current = createWeatherEngine();
+    }
+    return localEngineRef.current;
+  }, [bus]);
 
   useEffect(() => {
-    setCondition(engineRef.current, weatherCondition);
-  }, [weatherCondition]);
+    setCondition(resolveEngine(), weatherCondition);
+  }, [weatherCondition, resolveEngine]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -51,8 +60,10 @@ export default function WeatherFxOverlay() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const engine = resolveEngine();
     const rainFx: RainFxState = createRainFx();
     const snowFx: SnowFxState = createSnowFx();
+    bus?.setSnowFx(snowFx);
 
     let rafId = 0;
     let lastTime = 0;
@@ -72,9 +83,10 @@ export default function WeatherFxOverlay() {
       const delta = Math.min(lastTime ? time - lastTime : 16.67, 100);
       lastTime = time;
 
-      tick(engineRef.current, delta);
-      const { rain, snow } = engineRef.current.current;
-      const wind = getEffectiveWind(engineRef.current);
+      // 共有エンジンの tick はこのループが唯一の所有者（WeatherFxBus 参照）
+      tick(engine, delta);
+      const { rain, snow } = engine.current;
+      const wind = getEffectiveWind(engine);
 
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -108,14 +120,15 @@ export default function WeatherFxOverlay() {
     }
 
     rafId = requestAnimationFrame(loop);
-    const detachGust = attachGustTracker(engineRef.current);
+    const detachGust = attachGustTracker(engine);
 
     return () => {
       cancelAnimationFrame(rafId);
       detachGust();
       window.removeEventListener("resize", resize);
+      bus?.setSnowFx(null);
     };
-  }, [registry]);
+  }, [registry, resolveEngine, bus]);
 
   return (
     <canvas
