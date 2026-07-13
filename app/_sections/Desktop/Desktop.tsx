@@ -9,6 +9,7 @@ import { SurfaceRegistryProvider } from "@/app/contexts/SurfaceRegistry";
 import RetroWindow from "@/app/components/RetroWindow";
 import Taskbar from "@/app/components/Taskbar";
 import WeatherFxOverlay from "@/app/components/WeatherFxOverlay/WeatherFxOverlay";
+import Resident from "@/app/components/Resident/Resident";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import {
   WINDOW_REGISTRY,
@@ -62,6 +63,7 @@ function DesktopInner({ contents }: Props) {
       </main>
       <Taskbar />
       {!isMobile && <WeatherFxOverlay />}
+      {!isMobile && <Resident />}
     </SurfaceRegistryProvider>
   );
 }
