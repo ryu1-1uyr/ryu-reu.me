@@ -38,7 +38,6 @@ function makeState(overrides: Partial<ResidentState>): ResidentState {
     stateDuration: 99999,
     platformId: "win-a",
     cooldowns: { startle: 0, teleport: 0 },
-    lastLightning: 0,
     headSnow: 0,
     bottomTime: 0,
     targetX: null,
@@ -147,24 +146,28 @@ describe("residentEngine", () => {
     expect(state.name).toBe("idle");
   });
 
-  it("lightning の立ち上がりで 1 回だけビックリし、クールダウン中は再発しない", () => {
+  it("雷鳴イベントでビックリし、クールダウン中は再発しない", () => {
     const state = makeState({ name: "idle" });
-    const storm: ResidentEnv = { ...CALM_ENV, lightning: 1 };
-    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
+    const clap: ResidentEnv = { ...CALM_ENV, lightning: 1, thunder: true };
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, clap);
     expect(state.name).toBe("startle");
     expect(state.vy).toBeLessThan(0);
-    // 着地まで落として、lightning を一度下げてから再度上げる（エッジ再発生）
+    // 着地させてから再度の雷鳴 → クールダウン中なのでビックリしない
     run(state, 2000, [WINDOW_A, GROUND], () => 0.5, CALM_ENV);
     expect(state.platformId).toBe("win-a");
-    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
-    // クールダウン中なのでビックリしない
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, clap);
     expect(state.name).not.toBe("startle");
   });
 
-  it("sleep 中でも雷では飛び起きる", () => {
+  it("sleep 中でも雷鳴では飛び起きる", () => {
     const state = makeState({ name: "sleep" });
-    const nightStorm: ResidentEnv = { ...CALM_ENV, isNight: true, lightning: 1 };
-    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, nightStorm);
+    const nightClap: ResidentEnv = {
+      ...CALM_ENV,
+      isNight: true,
+      lightning: 1,
+      thunder: true,
+    };
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, nightClap);
     expect(state.name).toBe("startle");
   });
 
@@ -414,10 +417,11 @@ describe("掴んで投げる", () => {
 
 describe("雷鳴と cower", () => {
   const storm: ResidentEnv = { ...CALM_ENV, rain: 1, lightning: 1 };
+  const stormClap: ResidentEnv = { ...storm, thunder: true };
 
   it("ビックリ着地後は数秒縮こまってから通常に戻る", () => {
     const state = makeState({ name: "idle" });
-    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, stormClap);
     expect(state.name).toBe("startle");
     expect(state.pendingCower).toBe(true);
     // 着地 → land 完了 → cower
@@ -428,22 +432,15 @@ describe("雷鳴と cower", () => {
     expect(state.name).toBe("idle");
   });
 
-  it("雷天候の間は常時の雨宿りに入らない", () => {
-    const state = makeState({ name: "idle", lastLightning: 1 });
+  it("雷天候の間は雷鳴がなくても常時の雨宿りに入らない", () => {
+    const state = makeState({ name: "idle" });
     tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
     expect(state.name).toBe("idle");
   });
 
   it("雨宿り中に雷天候へ変わったら解除される", () => {
-    const state = makeState({ name: "shelter", lastLightning: 1 });
+    const state = makeState({ name: "shelter" });
     tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
     expect(state.name).toBe("idle");
-  });
-
-  it("雷天候が続く間、エッジがなくても雷鳴の抽選でビックリする", () => {
-    const state = makeState({ name: "idle", lastLightning: 1 });
-    // rand を極小にして雷鳴抽選を必中させる
-    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.0001, storm);
-    expect(state.name).toBe("startle");
   });
 });

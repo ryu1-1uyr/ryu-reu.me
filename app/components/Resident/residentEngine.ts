@@ -44,8 +44,6 @@ export type ResidentState = {
   platformId: string | null;
   /** 行動クールダウンの残り (ms) */
   cooldowns: { startle: number; teleport: number };
-  /** lightning チャンネルの前回値（立ち上がりエッジ検出用） */
-  lastLightning: number;
   /** 頭の積雪量 0-1。idle/sleep 中に積もり、動くと落ちる */
   headSnow: number;
   /** 最下層足場での滞在累計 (ms)。テレポート発動条件 */
@@ -70,6 +68,8 @@ export type ResidentEnv = {
   wind: number;
   lightning: number;
   isNight: boolean;
+  /** この tick で雷鳴（稲妻の一撃）が発生したか。thunderBus のイベントを転写する */
+  thunder: boolean;
 };
 
 /** 環境入力なし（晴天・昼）の既定値。既存テストの後方互換用 */
@@ -79,6 +79,7 @@ export const CALM_ENV: ResidentEnv = {
   wind: 0,
   lightning: 0,
   isNight: false,
+  thunder: false,
 };
 
 export const WALK_SPEED = 36; // px/s
@@ -92,10 +93,8 @@ export const EDGE_TURN_PROBABILITY = 0.6;
 export const STARTLE_DURATION = 600; // ms（ビックリポーズの上限。着地で打ち切り）
 export const STARTLE_COOLDOWN = 8000; // ms
 const STARTLE_HOP_VY = -300;
-/** lightning チャンネルがこの値を上向きに跨いだらビックリ。以上の間は雷天候とみなす */
-export const LIGHTNING_EDGE_THRESHOLD = 0.5;
-/** 雷天候の間、平均この間隔で雷鳴に驚く (ms)。ポアソン近似の乱数抽選 */
-export const THUNDER_AVG_INTERVAL = 9000;
+/** lightning チャンネルがこの値以上の間は雷天候とみなす（雨宿りの抑止に使う） */
+export const LIGHTNING_ACTIVE_THRESHOLD = 0.5;
 /** ビックリ着地後に縮こまる時間 (ms) */
 export const COWER_DURATION_RANGE: [number, number] = [2000, 4000];
 /** ドラッグで投げた時の初速クランプ (px/s) */
@@ -159,7 +158,6 @@ export function createResident(viewport: Viewport, rand: Rand = Math.random): Re
     stateDuration: 0,
     platformId: null,
     cooldowns: { startle: 0, teleport: 0 },
-    lastLightning: 0,
     headSnow: 0,
     bottomTime: 0,
     targetX: null,
@@ -381,11 +379,6 @@ export function tick(
   state.cooldowns.startle = Math.max(0, state.cooldowns.startle - deltaMs);
   state.cooldowns.teleport = Math.max(0, state.cooldowns.teleport - deltaMs);
 
-  const lightningEdge =
-    env.lightning >= LIGHTNING_EDGE_THRESHOLD &&
-    state.lastLightning < LIGHTNING_EDGE_THRESHOLD;
-  state.lastLightning = env.lightning;
-
   // 掴まれ中: 位置は moveHeld が外から与えるので物理は動かさない
   if (state.name === "held") return;
 
@@ -441,13 +434,8 @@ export function tick(
   }
 
   // 優先度①: 雷鳴に驚く（sleep からも飛び起きる）。
-  // 天候遷移の立ち上がりエッジに加え、雷天候が続く間は平均 THUNDER_AVG_INTERVAL
-  // 間隔のランダムな「雷鳴」で繰り返し驚く
-  let thunderClap = lightningEdge;
-  if (!thunderClap && env.lightning >= LIGHTNING_EDGE_THRESHOLD) {
-    thunderClap = rand() < deltaMs / THUNDER_AVG_INTERVAL;
-  }
-  if (thunderClap && state.cooldowns.startle <= 0) {
+  // 雷鳴は SkyCanvas の稲妻発生と同期した thunderBus イベント（env.thunder）
+  if (env.thunder && state.cooldowns.startle <= 0) {
     state.cooldowns.startle = STARTLE_COOLDOWN;
     enterState(state, "startle", STARTLE_DURATION);
     state.platformId = null;
@@ -464,7 +452,7 @@ export function tick(
   if (
     !inShelterFlow &&
     env.rain >= SHELTER_ENTER_RAIN &&
-    env.lightning < LIGHTNING_EDGE_THRESHOLD &&
+    env.lightning < LIGHTNING_ACTIVE_THRESHOLD &&
     state.name !== "cower"
   ) {
     const spot = findShelterSpot(platforms, platform, state);
@@ -479,7 +467,7 @@ export function tick(
   }
   if (
     inShelterFlow &&
-    (env.rain <= SHELTER_EXIT_RAIN || env.lightning >= LIGHTNING_EDGE_THRESHOLD)
+    (env.rain <= SHELTER_EXIT_RAIN || env.lightning >= LIGHTNING_ACTIVE_THRESHOLD)
   ) {
     state.targetX = null;
     enterState(state, "idle", randomIn(IDLE_DURATION_RANGE, rand));

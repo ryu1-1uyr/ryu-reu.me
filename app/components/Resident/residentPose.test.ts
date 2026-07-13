@@ -14,7 +14,6 @@ function makeState(overrides: Partial<ResidentState>): ResidentState {
     stateDuration: 1000,
     platformId: "win-a",
     cooldowns: { startle: 0, teleport: 0 },
-    lastLightning: 0,
     headSnow: 0,
     bottomTime: 0,
     targetX: null,

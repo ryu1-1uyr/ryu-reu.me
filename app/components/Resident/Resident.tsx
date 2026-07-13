@@ -6,6 +6,7 @@ import { useWeatherFxBus } from "@/app/contexts/WeatherFxBus";
 import { useWeatherData } from "@/app/hooks/useWeatherData";
 import { useSkyPhase } from "@/app/hooks/useSkyPhase";
 import { getEffectiveWind } from "@/app/components/SkyBackground/weatherEngine";
+import { onThunder } from "@/app/components/SkyBackground/thunderBus";
 import { stompSnow } from "@/app/components/WeatherFxOverlay/snowFx";
 import {
   CALM_ENV,
@@ -80,6 +81,12 @@ export default function Resident({ skin = pinkSkin }: { skin?: ResidentSkin }) {
     };
     window.addEventListener("pointermove", onPointerMove, { passive: true });
 
+    // SkyCanvas の稲妻と同期した雷鳴イベント。次の tick で 1 回だけ消費する
+    let thunderPending = false;
+    const offThunder = onThunder(() => {
+      thunderPending = true;
+    });
+
     let rafId = 0;
     let lastTime = 0;
     // 積雪の踏み散らし: 前回 stomp した位置と直前の状態名
@@ -105,6 +112,8 @@ export default function Resident({ skin = pinkSkin }: { skin?: ResidentSkin }) {
 
       // 環境入力: 共有エンジンの補間済みチャンネル値（bus がなければ無風・晴天扱い）
       const engine = bus?.getEngine();
+      const thunder = thunderPending;
+      thunderPending = false;
       const env: ResidentEnv = engine
         ? {
             rain: engine.current.rain,
@@ -112,8 +121,9 @@ export default function Resident({ skin = pinkSkin }: { skin?: ResidentSkin }) {
             wind: getEffectiveWind(engine),
             lightning: engine.current.lightning,
             isNight: isNightRef.current,
+            thunder,
           }
-        : { ...CALM_ENV, isNight: isNightRef.current };
+        : { ...CALM_ENV, isNight: isNightRef.current, thunder };
 
       tick(state, delta, platforms, viewport, Math.random, env);
 
@@ -150,6 +160,7 @@ export default function Resident({ skin = pinkSkin }: { skin?: ResidentSkin }) {
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("pointermove", onPointerMove);
+      offThunder();
       skinInstance.unmount();
       stateRef.current = null;
     };

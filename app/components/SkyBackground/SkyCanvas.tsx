@@ -10,6 +10,7 @@ import {
   getEffectiveWind,
 } from "./weatherEngine";
 import { attachGustTracker } from "./gustTracker";
+import { emitThunder } from "./thunderBus";
 
 type Props = {
   phase: SkyPhase;
@@ -932,6 +933,8 @@ function tickLightning(
       state.durationMs = duration;
       state.flashOpacity = 0.12 + Math.random() * 0.08;
       state.bolts = generateLightningBolts(w, h);
+      // 稲妻と同じ瞬間に雷鳴イベントを配信（住人のビックリ反応と同期させる）
+      emitThunder();
     }
   }
 }
