@@ -12,14 +12,31 @@ import {
   createResident,
   tick,
   hop,
+  grab,
+  moveHeld,
+  releaseHeld,
   type Platform,
   type ResidentEnv,
   type ResidentState,
 } from "./residentEngine";
 import { computePose } from "./residentPose";
-import { placeholderSkin } from "./skins/placeholderSkin";
+import { pinkSkin } from "./skins/placeholderSkin";
+import type { ResidentSkin } from "./skins/types";
 
-const skin = placeholderSkin;
+/** ドラッグ開始とみなすポインタ移動距離 (px)。未満なら hop 扱い */
+const DRAG_THRESHOLD = 5;
+
+type DragTracking = {
+  pointerId: number;
+  grabbed: boolean;
+  startX: number;
+  startY: number;
+  lastX: number;
+  lastY: number;
+  lastT: number;
+  vx: number;
+  vy: number;
+};
 
 /**
  * デスクトップの住人。
@@ -27,11 +44,12 @@ const skin = placeholderSkin;
  * このコンポーネントは位置 transform・rAF・入力・環境収集のみを担当し、
  * 見た目はすべて skin（ResidentSkin）経由で描画する。
  */
-export default function Resident() {
+export default function Resident({ skin = pinkSkin }: { skin?: ResidentSkin }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const registry = useSurfaceRegistry();
   const bus = useWeatherFxBus();
   const stateRef = useRef<ResidentState | null>(null);
+  const dragRef = useRef<DragTracking | null>(null);
 
   // 時間帯は 60 秒毎に再計算されるため、ref 転写で rAF effect の再実行を避ける
   const { weatherData } = useWeatherData();
@@ -135,15 +153,74 @@ export default function Resident() {
       skinInstance.unmount();
       stateRef.current = null;
     };
-  }, [registry, bus]);
+  }, [registry, bus, skin]);
 
   return (
     <div
       ref={rootRef}
-      className="fixed left-0 top-0 z-[55] cursor-pointer select-none will-change-transform"
-      style={{ width: skin.size, height: skin.size }}
-      onPointerDown={() => {
-        if (stateRef.current) hop(stateRef.current);
+      className="fixed left-0 top-0 z-[55] cursor-grab select-none will-change-transform"
+      style={{ width: skin.size, height: skin.size, touchAction: "none" }}
+      onPointerDown={(e) => {
+        if (!stateRef.current) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        dragRef.current = {
+          pointerId: e.pointerId,
+          grabbed: false,
+          startX: e.clientX,
+          startY: e.clientY,
+          lastX: e.clientX,
+          lastY: e.clientY,
+          lastT: performance.now(),
+          vx: 0,
+          vy: 0,
+        };
+      }}
+      onPointerMove={(e) => {
+        const d = dragRef.current;
+        const state = stateRef.current;
+        if (!d || !state || e.pointerId !== d.pointerId) return;
+        if (!d.grabbed) {
+          if (
+            Math.hypot(e.clientX - d.startX, e.clientY - d.startY) <
+            DRAG_THRESHOLD
+          ) {
+            return;
+          }
+          d.grabbed = true;
+          grab(state);
+        }
+        // 投げ初速用のポインタ速度（軽く平滑化）
+        const now = performance.now();
+        const dt = now - d.lastT;
+        if (dt > 0) {
+          d.vx = d.vx * 0.6 + ((e.clientX - d.lastX) / dt) * 1000 * 0.4;
+          d.vy = d.vy * 0.6 + ((e.clientY - d.lastY) / dt) * 1000 * 0.4;
+        }
+        d.lastX = e.clientX;
+        d.lastY = e.clientY;
+        d.lastT = now;
+        // ポインタは体の中心を掴む想定なので、足元へ半身ぶん下げる
+        moveHeld(state, e.clientX, e.clientY + skin.size / 2, {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
+      }}
+      onPointerUp={(e) => {
+        const d = dragRef.current;
+        const state = stateRef.current;
+        if (!d || !state || e.pointerId !== d.pointerId) return;
+        dragRef.current = null;
+        if (d.grabbed) {
+          releaseHeld(state, d.vx, d.vy);
+        } else {
+          hop(state);
+        }
+      }}
+      onPointerCancel={() => {
+        const d = dragRef.current;
+        const state = stateRef.current;
+        dragRef.current = null;
+        if (d?.grabbed && state) releaseHeld(state, 0, 0);
       }}
       aria-hidden="true"
     />

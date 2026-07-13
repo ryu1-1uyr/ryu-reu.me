@@ -24,7 +24,9 @@ export type ResidentStateName =
   | "shelterSeek"
   | "shelter"
   | "teleportOut"
-  | "teleportIn";
+  | "teleportIn"
+  | "cower"
+  | "held";
 
 export type ResidentState = {
   x: number;
@@ -52,6 +54,8 @@ export type ResidentState = {
   targetX: number | null;
   /** テレポートの行き先（teleportOut 中に保持） */
   teleportTarget: { platformId: string; x: number } | null;
+  /** 雷ビックリの着地後に縮こまる予約フラグ */
+  pendingCower: boolean;
 };
 
 export type Viewport = { width: number; height: number };
@@ -88,8 +92,14 @@ export const EDGE_TURN_PROBABILITY = 0.6;
 export const STARTLE_DURATION = 600; // ms（ビックリポーズの上限。着地で打ち切り）
 export const STARTLE_COOLDOWN = 8000; // ms
 const STARTLE_HOP_VY = -300;
-/** lightning チャンネルがこの値を上向きに跨いだらビックリ */
+/** lightning チャンネルがこの値を上向きに跨いだらビックリ。以上の間は雷天候とみなす */
 export const LIGHTNING_EDGE_THRESHOLD = 0.5;
+/** 雷天候の間、平均この間隔で雷鳴に驚く (ms)。ポアソン近似の乱数抽選 */
+export const THUNDER_AVG_INTERVAL = 9000;
+/** ビックリ着地後に縮こまる時間 (ms) */
+export const COWER_DURATION_RANGE: [number, number] = [2000, 4000];
+/** ドラッグで投げた時の初速クランプ (px/s) */
+export const THROW_MAX_SPEED = 700;
 /** この実効風以上で接地中も押し流される */
 export const WIND_PUSH_THRESHOLD = 0.8;
 const WIND_PUSH_SPEED = 20; // px/s（wind=1 のとき）
@@ -154,6 +164,7 @@ export function createResident(viewport: Viewport, rand: Rand = Math.random): Re
     bottomTime: 0,
     targetX: null,
     teleportTarget: null,
+    pendingCower: false,
   };
 }
 
@@ -176,10 +187,42 @@ function enterFall(state: ResidentState, vx: number, vy = 0): void {
   state.teleportTarget = null;
 }
 
-/** クリック等で小さく跳ねさせる。落下中は無視。sleep からは目を覚まして跳ねる */
+/** クリック等で小さく跳ねさせる。落下・掴まれ中は無視。sleep からは目を覚まして跳ねる */
 export function hop(state: ResidentState): void {
-  if (state.name === "fall" || state.name === "startle") return;
+  if (state.name === "fall" || state.name === "startle" || state.name === "held") return;
   enterFall(state, state.facing * 30, -420);
+}
+
+/** ポインタで掴む。以降 moveHeld で追従させ、releaseHeld で放す */
+export function grab(state: ResidentState): void {
+  enterState(state, "held", 0);
+  state.platformId = null;
+  state.vx = 0;
+  state.vy = 0;
+  state.headSnow = 0;
+  state.teleportTarget = null;
+  state.pendingCower = false;
+}
+
+/** 掴まれ中の足元位置をポインタに追従させる */
+export function moveHeld(
+  state: ResidentState,
+  x: number,
+  y: number,
+  viewport: Viewport,
+): void {
+  if (state.name !== "held") return;
+  state.x = Math.max(0, Math.min(viewport.width, x));
+  state.y = Math.max(-40, Math.min(viewport.height, y));
+}
+
+/** 掴みを放す。ポインタの速度を初速として投げられる */
+export function releaseHeld(state: ResidentState, vx: number, vy: number): void {
+  if (state.name !== "held") return;
+  const cvx = Math.max(-THROW_MAX_SPEED, Math.min(THROW_MAX_SPEED, vx));
+  const cvy = Math.max(-THROW_MAX_SPEED, Math.min(THROW_MAX_SPEED, vy));
+  enterFall(state, cvx, cvy);
+  if (Math.abs(cvx) > 1) state.facing = cvx > 0 ? 1 : -1;
 }
 
 function walkRange(p: Platform): [number, number] {
@@ -343,6 +386,9 @@ export function tick(
     state.lastLightning < LIGHTNING_EDGE_THRESHOLD;
   state.lastLightning = env.lightning;
 
+  // 掴まれ中: 位置は moveHeld が外から与えるので物理は動かさない
+  if (state.name === "held") return;
+
   if (state.name === "fall" || state.name === "startle") {
     applyFallPhysics(state, dt, platforms, viewport);
     return;
@@ -394,20 +440,33 @@ export function tick(
     return;
   }
 
-  // 優先度①: 雷ビックリ（sleep からも飛び起きる）
-  if (lightningEdge && state.cooldowns.startle <= 0) {
+  // 優先度①: 雷鳴に驚く（sleep からも飛び起きる）。
+  // 天候遷移の立ち上がりエッジに加え、雷天候が続く間は平均 THUNDER_AVG_INTERVAL
+  // 間隔のランダムな「雷鳴」で繰り返し驚く
+  let thunderClap = lightningEdge;
+  if (!thunderClap && env.lightning >= LIGHTNING_EDGE_THRESHOLD) {
+    thunderClap = rand() < deltaMs / THUNDER_AVG_INTERVAL;
+  }
+  if (thunderClap && state.cooldowns.startle <= 0) {
     state.cooldowns.startle = STARTLE_COOLDOWN;
     enterState(state, "startle", STARTLE_DURATION);
     state.platformId = null;
     state.vx = 0;
     state.vy = STARTLE_HOP_VY;
     state.headSnow = 0;
+    state.pendingCower = true;
     return;
   }
 
-  // 優先度②: 雨宿り（sleep 中でも雨が強まれば起きて動き出す）
+  // 優先度②: 雨宿り（sleep 中でも雨が強まれば起きて動き出す）。
+  // 雷天候の間は常時縮こまりを避け、雷鳴ごとの startle → cower に任せる
   const inShelterFlow = state.name === "shelterSeek" || state.name === "shelter";
-  if (!inShelterFlow && env.rain >= SHELTER_ENTER_RAIN) {
+  if (
+    !inShelterFlow &&
+    env.rain >= SHELTER_ENTER_RAIN &&
+    env.lightning < LIGHTNING_EDGE_THRESHOLD &&
+    state.name !== "cower"
+  ) {
     const spot = findShelterSpot(platforms, platform, state);
     if (spot !== null) {
       state.targetX = spot;
@@ -418,7 +477,10 @@ export function tick(
     }
     return;
   }
-  if (inShelterFlow && env.rain <= SHELTER_EXIT_RAIN) {
+  if (
+    inShelterFlow &&
+    (env.rain <= SHELTER_EXIT_RAIN || env.lightning >= LIGHTNING_EDGE_THRESHOLD)
+  ) {
     state.targetX = null;
     enterState(state, "idle", randomIn(IDLE_DURATION_RANGE, rand));
     return;
@@ -456,9 +518,22 @@ export function tick(
     return;
   }
 
-  if (state.name === "land") {
+  if (state.name === "cower") {
+    // 雷鳴に驚いた後、しばらく縮こまってから立ち直る
     if (state.stateTime >= state.stateDuration) {
       enterState(state, "idle", randomIn(IDLE_DURATION_RANGE, rand));
+    }
+    return;
+  }
+
+  if (state.name === "land") {
+    if (state.stateTime >= state.stateDuration) {
+      if (state.pendingCower) {
+        state.pendingCower = false;
+        enterState(state, "cower", randomIn(COWER_DURATION_RANGE, rand));
+      } else {
+        enterState(state, "idle", randomIn(IDLE_DURATION_RANGE, rand));
+      }
     }
     return;
   }

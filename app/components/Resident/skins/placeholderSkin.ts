@@ -19,13 +19,13 @@ function el(tag: string, className: string, text = ""): HTMLElement {
   return e;
 }
 
-function mount(root: HTMLElement): ResidentSkinInstance {
+function mount(root: HTMLElement, bodyColorClass: string): ResidentSkinInstance {
   // 構造: root > wrap(テレポート scale) > body(反転・squash・tilt) > 目・雪帽子
   //       root 直下に emote（zzz / !）とパーティクル（facing の影響を受けない）
   const wrap = el("div", "h-full w-full origin-bottom transition-none");
   const body = el(
     "div",
-    "relative h-full w-full origin-bottom rounded-[9px] border-2 border-illustration-stroke bg-elements-button",
+    `relative h-full w-full origin-bottom rounded-[9px] border-2 border-illustration-stroke ${bodyColorClass}`,
   );
   const eyes = el("div", "absolute inset-0");
   const pupilL = el(
@@ -55,7 +55,7 @@ function mount(root: HTMLElement): ResidentSkinInstance {
   for (let i = 0; i < 6; i++) {
     const span = el(
       "span",
-      "absolute left-1/2 top-1/2 h-1 w-1 rounded-full bg-elements-button",
+      `absolute left-1/2 top-1/2 h-1 w-1 rounded-full ${bodyColorClass}`,
     );
     // 放射方向（keyframes resident-poof が参照する CSS 変数）
     const angle = (Math.PI * 2 * i) / 6;
@@ -135,4 +135,11 @@ function mount(root: HTMLElement): ResidentSkinInstance {
   };
 }
 
-export const placeholderSkin: ResidentSkin = { size: SIZE, mount };
+/** ボディ色を差し替えたプレースホルダー skin を作る（色クラスは Tailwind の完全な文字列で渡す） */
+export function createPlaceholderSkin(bodyColorClass: string): ResidentSkin {
+  return { size: SIZE, mount: (root) => mount(root, bodyColorClass) };
+}
+
+// Tailwind JIT が拾えるよう、色クラスはここに完全な文字列で列挙しておく
+export const pinkSkin = createPlaceholderSkin("bg-elements-button");
+export const blueSkin = createPlaceholderSkin("bg-illustration-main");

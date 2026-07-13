@@ -3,9 +3,13 @@ import {
   createResident,
   tick,
   hop,
+  grab,
+  moveHeld,
+  releaseHeld,
   findShelterSpot,
   findNeighborTarget,
   chooseTeleportTarget,
+  THROW_MAX_SPEED,
   CALM_ENV,
   WALK_SPEED,
   EDGE_MARGIN,
@@ -39,6 +43,7 @@ function makeState(overrides: Partial<ResidentState>): ResidentState {
     bottomTime: 0,
     targetX: null,
     teleportTarget: null,
+    pendingCower: false,
     ...overrides,
   };
 }
@@ -366,5 +371,79 @@ describe("テレポート", () => {
     expect(target!.platformId).toBe("win-a");
     expect(target!.x).toBeGreaterThanOrEqual(WINDOW_A.x + EDGE_MARGIN);
     expect(target!.x).toBeLessThanOrEqual(WINDOW_A.x + WINDOW_A.width - EDGE_MARGIN);
+  });
+});
+
+describe("掴んで投げる", () => {
+  it("grab で held になり、物理が止まり moveHeld だけで動く", () => {
+    const state = makeState({ name: "idle" });
+    grab(state);
+    expect(state.name).toBe("held");
+    tick(state, 1000, [WINDOW_A, GROUND], VIEWPORT, () => 0.5);
+    expect(state.x).toBe(300);
+    expect(state.y).toBe(300);
+    moveHeld(state, 700, 200, VIEWPORT);
+    expect(state.x).toBe(700);
+    expect(state.y).toBe(200);
+  });
+
+  it("moveHeld はビューポート内にクランプされる", () => {
+    const state = makeState({ name: "held", platformId: null });
+    moveHeld(state, -100, 9999, VIEWPORT);
+    expect(state.x).toBe(0);
+    expect(state.y).toBe(VIEWPORT.height);
+  });
+
+  it("releaseHeld はクランプ済みの初速で投げ、やがて着地する", () => {
+    const state = makeState({ name: "held", platformId: null, x: 300, y: 200 });
+    releaseHeld(state, 5000, -5000);
+    expect(state.name).toBe("fall");
+    expect(state.vx).toBe(THROW_MAX_SPEED);
+    expect(state.vy).toBe(-THROW_MAX_SPEED);
+    expect(state.facing).toBe(1);
+    run(state, 5000, [GROUND]);
+    expect(state.platformId).toBe("__ground");
+  });
+
+  it("held 中は hop が無視される", () => {
+    const state = makeState({ name: "held", platformId: null });
+    hop(state);
+    expect(state.name).toBe("held");
+  });
+});
+
+describe("雷鳴と cower", () => {
+  const storm: ResidentEnv = { ...CALM_ENV, rain: 1, lightning: 1 };
+
+  it("ビックリ着地後は数秒縮こまってから通常に戻る", () => {
+    const state = makeState({ name: "idle" });
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
+    expect(state.name).toBe("startle");
+    expect(state.pendingCower).toBe(true);
+    // 着地 → land 完了 → cower
+    run(state, 1500, [WINDOW_A, GROUND], () => 0.5, CALM_ENV);
+    expect(state.name).toBe("cower");
+    // cower 満了で idle に復帰
+    run(state, 4000, [WINDOW_A, GROUND], () => 0.5, CALM_ENV);
+    expect(state.name).toBe("idle");
+  });
+
+  it("雷天候の間は常時の雨宿りに入らない", () => {
+    const state = makeState({ name: "idle", lastLightning: 1 });
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
+    expect(state.name).toBe("idle");
+  });
+
+  it("雨宿り中に雷天候へ変わったら解除される", () => {
+    const state = makeState({ name: "shelter", lastLightning: 1 });
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
+    expect(state.name).toBe("idle");
+  });
+
+  it("雷天候が続く間、エッジがなくても雷鳴の抽選でビックリする", () => {
+    const state = makeState({ name: "idle", lastLightning: 1 });
+    // rand を極小にして雷鳴抽選を必中させる
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.0001, storm);
+    expect(state.name).toBe("startle");
   });
 });

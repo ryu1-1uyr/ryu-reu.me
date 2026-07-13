@@ -11,6 +11,7 @@ import RetroWindow from "@/app/components/RetroWindow";
 import Taskbar from "@/app/components/Taskbar";
 import WeatherFxOverlay from "@/app/components/WeatherFxOverlay/WeatherFxOverlay";
 import Resident from "@/app/components/Resident/Resident";
+import { pinkSkin, blueSkin } from "@/app/components/Resident/skins/placeholderSkin";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import {
   WINDOW_REGISTRY,
@@ -65,7 +66,8 @@ function DesktopInner({ contents }: Props) {
         </main>
         <Taskbar />
         {!isMobile && <WeatherFxOverlay />}
-        {!isMobile && <Resident />}
+        {!isMobile && <Resident skin={pinkSkin} />}
+        {!isMobile && <Resident skin={blueSkin} />}
       </WeatherFxBusProvider>
     </SurfaceRegistryProvider>
   );

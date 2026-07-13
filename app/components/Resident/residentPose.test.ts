@@ -19,6 +19,7 @@ function makeState(overrides: Partial<ResidentState>): ResidentState {
     bottomTime: 0,
     targetX: null,
     teleportTarget: null,
+    pendingCower: false,
     ...overrides,
   };
 }
@@ -77,5 +78,15 @@ describe("computePose", () => {
   it("まばたき: 周期 3400ms の先頭 120ms だけ目を閉じる", () => {
     expect(computePose(makeState({}), CALM_ENV, 3400 + 60).eyesClosed).toBe(true);
     expect(computePose(makeState({}), CALM_ENV, 3400 + 200).eyesClosed).toBe(false);
+  });
+});
+
+describe("computePose 追加状態", () => {
+  it("cower はしゃがみポーズ", () => {
+    expect(computePose(makeState({ name: "cower" }), CALM_ENV, 500).crouch).toBe(true);
+  });
+
+  it("held はぶら下がりで縦に伸びる", () => {
+    expect(computePose(makeState({ name: "held" }), CALM_ENV, 500).squashY).toBeCloseTo(1.12);
   });
 });

@@ -50,7 +50,12 @@ export function computePose(
   } else if (state.name === "land") {
     const t = Math.min(state.stateTime / state.stateDuration, 1);
     squashY = 0.72 + 0.28 * t;
-  } else if (state.name === "fall" || state.name === "startle") {
+  } else if (
+    state.name === "fall" ||
+    state.name === "startle" ||
+    state.name === "held"
+  ) {
+    // 空中・ぶら下がり中は縦に伸びる
     squashY = 1.12;
   }
 
@@ -79,7 +84,7 @@ export function computePose(
     tilt,
     eyesClosed:
       state.name === "sleep" || timeMs % BLINK_INTERVAL < BLINK_DURATION,
-    crouch: state.name === "shelter",
+    crouch: state.name === "shelter" || state.name === "cower",
     emote,
     headSnow: state.headSnow,
     scale,
