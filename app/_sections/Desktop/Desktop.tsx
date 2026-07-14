@@ -6,9 +6,12 @@ import {
   useWindowManager,
 } from "@/app/contexts/WindowManager";
 import { SurfaceRegistryProvider } from "@/app/contexts/SurfaceRegistry";
+import { WeatherFxBusProvider } from "@/app/contexts/WeatherFxBus";
 import RetroWindow from "@/app/components/RetroWindow";
 import Taskbar from "@/app/components/Taskbar";
 import WeatherFxOverlay from "@/app/components/WeatherFxOverlay/WeatherFxOverlay";
+import Resident from "@/app/components/Resident/Resident";
+import { pinkSkin, blueSkin } from "@/app/components/Resident/skins/placeholderSkin";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import {
   WINDOW_REGISTRY,
@@ -26,42 +29,46 @@ function DesktopInner({ contents }: Props) {
 
   return (
     <SurfaceRegistryProvider>
-      <main
-        className={
-          isMobile
-            ? "flex flex-col items-center gap-6 p-6 pb-14"
-            : "h-[calc(100dvh-2.5rem)] relative overflow-hidden"
-        }
-      >
-        {WINDOW_REGISTRY.map((def) => {
-          if (!windows[def.id].open) return null;
-          const content = contents[def.id];
-          if (!content) return null;
+      <WeatherFxBusProvider>
+        <main
+          className={
+            isMobile
+              ? "flex flex-col items-center gap-6 p-6 pb-14"
+              : "h-[calc(100dvh-2.5rem)] relative overflow-hidden"
+          }
+        >
+          {WINDOW_REGISTRY.map((def) => {
+            if (!windows[def.id].open) return null;
+            const content = contents[def.id];
+            if (!content) return null;
 
-          return (
-            <RetroWindow
-              key={def.id}
-              title={def.title}
-              color={def.color}
-              className={
-                isMobile
-                  ? def.mobileClassName
-                  : def.desktopClassName
-              }
-              draggable={!isMobile}
-              initialPosition={!isMobile ? def.initialPosition : undefined}
-              zIndex={!isMobile ? windows[def.id].zIndex : undefined}
-              onClose={() => closeWindow(def.id)}
-              onFocus={() => focusWindow(def.id)}
-              surfaceId={!isMobile ? def.id : undefined}
-            >
-              {content}
-            </RetroWindow>
-          );
-        })}
-      </main>
-      <Taskbar />
-      {!isMobile && <WeatherFxOverlay />}
+            return (
+              <RetroWindow
+                key={def.id}
+                title={def.title}
+                color={def.color}
+                className={
+                  isMobile
+                    ? def.mobileClassName
+                    : def.desktopClassName
+                }
+                draggable={!isMobile}
+                initialPosition={!isMobile ? def.initialPosition : undefined}
+                zIndex={!isMobile ? windows[def.id].zIndex : undefined}
+                onClose={() => closeWindow(def.id)}
+                onFocus={() => focusWindow(def.id)}
+                surfaceId={!isMobile ? def.id : undefined}
+              >
+                {content}
+              </RetroWindow>
+            );
+          })}
+        </main>
+        <Taskbar />
+        {!isMobile && <WeatherFxOverlay />}
+        {!isMobile && <Resident skin={pinkSkin} />}
+        {!isMobile && <Resident skin={blueSkin} />}
+      </WeatherFxBusProvider>
     </SurfaceRegistryProvider>
   );
 }

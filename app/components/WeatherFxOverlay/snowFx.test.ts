@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   createSnowFx,
   tickSnowFx,
+  stompSnow,
   type SnowFxState,
   type NamedSurface,
 } from "./snowFx";
@@ -125,5 +126,55 @@ describe("snowFx", () => {
     tickAt(s, [surf], 30); // intensity 0 → 融解が進む
 
     expect(Math.max(...acc.columns)).toBe(0);
+  });
+
+  describe("stompSnow", () => {
+    it("collapses only the columns within the radius, leaving the rest untouched", () => {
+      const s = createSnowFx();
+      tickAt(s, [surface("a", 0, 100, 100)]);
+      const acc = s.accumulations.get("a")!;
+      acc.columns.fill(6);
+
+      stompSnow(s, "a", 50, 8); // 中心 50, 半径 8 → 列10〜14あたりが対象
+
+      expect(acc.columns[10]).toBe(0);
+      expect(acc.columns[14]).toBe(0);
+      expect(acc.columns[9]).toBe(6);
+      expect(acc.columns[15]).toBe(6);
+      expect(s.collapseParticles.length).toBeGreaterThan(0);
+    });
+
+    it("returns the total height collapsed, matching the pre-stomp sum in range", () => {
+      const s = createSnowFx();
+      tickAt(s, [surface("a", 0, 100, 100)]);
+      const acc = s.accumulations.get("a")!;
+      acc.columns.fill(6);
+
+      const collapsed = stompSnow(s, "a", 50, 8);
+
+      expect(collapsed).toBe(6 * 5); // 列10〜14の5列ぶん
+    });
+
+    it("collapses nothing when the range only has sub-threshold snow", () => {
+      const s = createSnowFx();
+      tickAt(s, [surface("a", 0, 100, 100)]);
+      const acc = s.accumulations.get("a")!;
+      acc.columns.fill(0.2);
+
+      const collapsed = stompSnow(s, "a", 50, 8);
+
+      expect(collapsed).toBe(0);
+      expect(s.collapseParticles.length).toBe(0);
+    });
+
+    it("is a no-op returning 0 for an unknown surfaceId", () => {
+      const s = createSnowFx();
+      tickAt(s, [surface("a", 0, 100, 100)]);
+
+      const collapsed = stompSnow(s, "unknown", 50, 8);
+
+      expect(collapsed).toBe(0);
+      expect(s.collapseParticles.length).toBe(0);
+    });
   });
 });

@@ -64,10 +64,23 @@ function calcPhase(
   };
 }
 
+const VALID_PHASES: readonly SkyPhase[] = ["sunrise", "day", "sunset", "night"];
+
+/**
+ * 開発・動作確認用の時間帯オーバーライド（?phase=night 等）。
+ * URL に有効値があればその phase に固定する。
+ */
+function readPhaseOverride(): SkyPhase | null {
+  if (typeof window === "undefined") return null;
+  const p = new URLSearchParams(window.location.search).get("phase");
+  return p && VALID_PHASES.includes(p as SkyPhase) ? (p as SkyPhase) : null;
+}
+
 export function useSkyPhase(
   sunriseUnix?: number,
   sunsetUnix?: number
 ): SkyPhaseResult {
+  const [override] = useState<SkyPhase | null>(readPhaseOverride);
   const [result, setResult] = useState<SkyPhaseResult>(() =>
     calcPhase(new Date(), sunriseUnix, sunsetUnix)
   );
@@ -80,5 +93,6 @@ export function useSkyPhase(
     return () => clearInterval(id);
   }, [sunriseUnix, sunsetUnix]);
 
+  if (override) return { phase: override, progress: 0.5 };
   return result;
 }

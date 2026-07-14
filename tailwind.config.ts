@@ -20,9 +20,19 @@ const config: Config = {
           "50%": { transform: "translateX(60%)", width: "60%" },
           "100%": { transform: "translateX(250%)", width: "40%" },
         },
+        // 住人のテレポート演出: 放射状に飛散して消えるパーティクル
+        // 方向は各要素の --poof-dx / --poof-dy で与える
+        "resident-poof": {
+          "0%": { transform: "translate(0, 0) scale(1)", opacity: "1" },
+          "100%": {
+            transform: "translate(var(--poof-dx), var(--poof-dy)) scale(0.2)",
+            opacity: "0",
+          },
+        },
       },
       animation: {
         "loading-bar": "loading-bar 1.5s ease-in-out infinite",
+        "resident-poof": "resident-poof 500ms ease-out forwards",
       },
       colors: {
         elements: {
