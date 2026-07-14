@@ -19,6 +19,8 @@ function makeState(overrides: Partial<ResidentState>): ResidentState {
     targetX: null,
     teleportTarget: null,
     pendingCower: false,
+    pendingGreeting: null,
+    greetingHops: 0,
     ...overrides,
   };
 }
@@ -87,5 +89,30 @@ describe("computePose 追加状態", () => {
 
   it("held はぶら下がりで縦に伸びる", () => {
     expect(computePose(makeState({ name: "held" }), CALM_ENV, 500).squashY).toBeCloseTo(1.12);
+  });
+
+  it("yawn は中間で最も伸び、後半は目を閉じる", () => {
+    const mid = computePose(
+      makeState({ name: "yawn", stateTime: 900, stateDuration: 1800 }),
+      CALM_ENV,
+      500,
+    );
+    expect(mid.squashY).toBeCloseTo(1.12);
+    expect(mid.emote).toBe("yawn");
+    const late = computePose(
+      makeState({ name: "yawn", stateTime: 1400, stateDuration: 1800 }),
+      CALM_ENV,
+      500,
+    );
+    expect(late.eyesClosed).toBe(true);
+  });
+
+  it("喜びジャンプ中は joy を出す", () => {
+    const pose = computePose(
+      makeState({ name: "fall", greetingHops: 2 }),
+      CALM_ENV,
+      500,
+    );
+    expect(pose.emote).toBe("joy");
   });
 });

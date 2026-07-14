@@ -50,6 +50,16 @@ function mount(root: HTMLElement, bodyColorClass: string): ResidentSkinInstance 
     "absolute -top-4 left-1/2 -translate-x-1/2 text-[11px] font-bold leading-none text-elements-button select-none hidden",
     "!",
   );
+  const joy = el(
+    "span",
+    "absolute -top-4 right-[-6px] text-[10px] leading-none text-elements-headline select-none hidden",
+    "♪",
+  );
+  const yawn = el(
+    "span",
+    "absolute -top-4 right-[-14px] text-[8px] leading-none text-elements-paragraph select-none hidden",
+    "ふぁ…",
+  );
   const particles = el("div", "absolute inset-0 hidden");
   const particleSpans: HTMLElement[] = [];
   for (let i = 0; i < 6; i++) {
@@ -68,7 +78,7 @@ function mount(root: HTMLElement, bodyColorClass: string): ResidentSkinInstance 
   eyes.append(pupilL, pupilR);
   body.append(eyes, snowCap);
   wrap.appendChild(body);
-  root.append(wrap, zzz, surprise, particles);
+  root.append(wrap, zzz, surprise, joy, yawn, particles);
 
   // テレポートの出/入それぞれでパーティクルを発火し直すための前フレーム記憶
   let lastPoofKey = "";
@@ -107,6 +117,8 @@ function mount(root: HTMLElement, bodyColorClass: string): ResidentSkinInstance 
 
     zzz.classList.toggle("hidden", pose.emote !== "zzz");
     surprise.classList.toggle("hidden", pose.emote !== "surprise");
+    joy.classList.toggle("hidden", pose.emote !== "joy");
+    yawn.classList.toggle("hidden", pose.emote !== "yawn");
 
     // テレポート: 状態（out/in）が切り替わるたびにアニメーションを再発火
     if (pose.emote === "teleport") {

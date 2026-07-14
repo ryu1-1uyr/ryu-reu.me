@@ -10,6 +10,8 @@ import {
   findNeighborTarget,
   chooseTeleportTarget,
   THROW_MAX_SPEED,
+  GREETING_JOY_HOPS,
+  YAWN_DURATION,
   CALM_ENV,
   WALK_SPEED,
   EDGE_MARGIN,
@@ -43,6 +45,8 @@ function makeState(overrides: Partial<ResidentState>): ResidentState {
     targetX: null,
     teleportTarget: null,
     pendingCower: false,
+    pendingGreeting: null,
+    greetingHops: 0,
     ...overrides,
   };
 }
@@ -442,5 +446,53 @@ describe("雷鳴と cower", () => {
     const state = makeState({ name: "shelter" });
     tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, storm);
     expect(state.name).toBe("idle");
+  });
+});
+
+describe("訪問の挨拶", () => {
+  it("joy: 最初の着地後に喜びジャンプを連発してから通常に戻る", () => {
+    const state = makeState({
+      name: "land",
+      stateTime: 300,
+      stateDuration: 280,
+      pendingGreeting: "joy",
+    });
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5);
+    // 1 回目のジャンプが始まり、残り回数が減っている
+    expect(state.name).toBe("fall");
+    expect(state.vy).toBeLessThan(0);
+    expect(state.pendingGreeting).toBeNull();
+    expect(state.greetingHops).toBe(GREETING_JOY_HOPS - 1);
+    // 連発が終わると通常の徘徊に戻る
+    run(state, 6000, [WINDOW_A, GROUND]);
+    expect(state.greetingHops).toBe(0);
+    expect(["idle", "walk"]).toContain(state.name);
+  });
+
+  it("sleepy: 着地後にあくびをして、夜ならそのまま眠る", () => {
+    const state = makeState({
+      name: "land",
+      stateTime: 300,
+      stateDuration: 280,
+      pendingGreeting: "sleepy",
+    });
+    const night: ResidentEnv = { ...CALM_ENV, isNight: true };
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, night);
+    expect(state.name).toBe("yawn");
+    run(state, YAWN_DURATION + 100, [WINDOW_A, GROUND], () => 0.5, night);
+    expect(state.name).toBe("sleep");
+  });
+
+  it("sleepy: 昼にあくびが終わったら idle に戻る", () => {
+    const state = makeState({ name: "yawn", stateDuration: YAWN_DURATION });
+    run(state, YAWN_DURATION + 100, [WINDOW_A, GROUND]);
+    expect(state.name).toBe("idle");
+  });
+
+  it("掴まれたら未消費の挨拶はキャンセルされる", () => {
+    const state = makeState({ pendingGreeting: "joy", greetingHops: 2 });
+    grab(state);
+    expect(state.pendingGreeting).toBeNull();
+    expect(state.greetingHops).toBe(0);
   });
 });

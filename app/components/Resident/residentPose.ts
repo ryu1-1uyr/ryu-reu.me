@@ -6,7 +6,13 @@
 
 import type { ResidentEnv, ResidentState, ResidentStateName } from "./residentEngine";
 
-export type ResidentEmote = "none" | "zzz" | "surprise" | "teleport";
+export type ResidentEmote =
+  | "none"
+  | "zzz"
+  | "surprise"
+  | "teleport"
+  | "joy"
+  | "yawn";
 
 export type ResidentPose = {
   key: ResidentStateName;
@@ -57,6 +63,10 @@ export function computePose(
   ) {
     // 空中・ぶら下がり中は縦に伸びる
     squashY = 1.12;
+  } else if (state.name === "yawn") {
+    // ぐーっと伸びてから戻る（専用の絵がなくても成立するあくび）
+    const t = Math.min(state.stateTime / state.stateDuration, 1);
+    squashY = 1 + 0.12 * Math.sin(Math.PI * t);
   }
 
   const tilt =
@@ -67,6 +77,9 @@ export function computePose(
   else if (state.name === "startle") emote = "surprise";
   else if (state.name === "teleportOut" || state.name === "teleportIn")
     emote = "teleport";
+  else if (state.name === "yawn") emote = "yawn";
+  else if (state.greetingHops > 0 || state.pendingGreeting === "joy")
+    emote = "joy";
 
   // テレポート演出: 縮んで消え、行き先で膨らんで現れる
   let scale = 1;
@@ -83,7 +96,10 @@ export function computePose(
     squashY,
     tilt,
     eyesClosed:
-      state.name === "sleep" || timeMs % BLINK_INTERVAL < BLINK_DURATION,
+      state.name === "sleep" ||
+      (state.name === "yawn" &&
+        state.stateTime / state.stateDuration > 0.5) ||
+      timeMs % BLINK_INTERVAL < BLINK_DURATION,
     crouch: state.name === "shelter" || state.name === "cower",
     emote,
     headSnow: state.headSnow,

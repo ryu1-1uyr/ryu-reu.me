@@ -16,16 +16,21 @@ import {
   grab,
   moveHeld,
   releaseHeld,
+  setGreeting,
   type Platform,
   type ResidentEnv,
   type ResidentState,
 } from "./residentEngine";
+import { recordVisit, recordInteraction } from "./residentMemory";
 import { computePose } from "./residentPose";
 import { pinkSkin } from "./skins/placeholderSkin";
 import type { ResidentSkin } from "./skins/types";
 
 /** ドラッグ開始とみなすポインタ移動距離 (px)。未満なら hop 扱い */
 const DRAG_THRESHOLD = 5;
+
+/** この間隔以上空いた再訪を「久しぶり」とみなし、喜びの挨拶をする (ms) */
+const LONG_ABSENCE_MS = 3 * 24 * 60 * 60 * 1000;
 
 type DragTracking = {
   pointerId: number;
@@ -73,6 +78,17 @@ export default function Resident({ skin = pinkSkin }: { skin?: ResidentSkin }) {
     const state = createResident(viewport);
     stateRef.current = state;
     const skinInstance = skin.mount(root);
+
+    // 訪問を記録し、挨拶を予約する（久しぶりの喜び > 夜のあくびの順で優先）
+    const visit = recordVisit();
+    if (
+      visit.previous &&
+      Date.now() - visit.previous.lastVisitAt >= LONG_ABSENCE_MS
+    ) {
+      setGreeting(state, "joy");
+    } else if (isNightRef.current) {
+      setGreeting(state, "sleepy");
+    }
 
     // 視線追従用: 最後のポインタ位置
     let pointerPos: { x: number; y: number } | null = null;
@@ -223,8 +239,10 @@ export default function Resident({ skin = pinkSkin }: { skin?: ResidentSkin }) {
         dragRef.current = null;
         if (d.grabbed) {
           releaseHeld(state, d.vx, d.vy);
+          recordInteraction("throw");
         } else {
           hop(state);
+          recordInteraction("hop");
         }
       }}
       onPointerCancel={() => {

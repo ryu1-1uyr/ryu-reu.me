@@ -26,7 +26,8 @@ export type ResidentStateName =
   | "teleportOut"
   | "teleportIn"
   | "cower"
-  | "held";
+  | "held"
+  | "yawn";
 
 export type ResidentState = {
   x: number;
@@ -54,6 +55,10 @@ export type ResidentState = {
   teleportTarget: { platformId: string; x: number } | null;
   /** 雷ビックリの着地後に縮こまる予約フラグ */
   pendingCower: boolean;
+  /** 訪問時の挨拶リアクションの予約（最初の着地後に消費） */
+  pendingGreeting: "joy" | "sleepy" | null;
+  /** 喜びジャンプの残り回数（久しぶりの再訪挨拶） */
+  greetingHops: number;
 };
 
 export type Viewport = { width: number; height: number };
@@ -99,6 +104,14 @@ export const LIGHTNING_ACTIVE_THRESHOLD = 0.5;
 export const COWER_DURATION_RANGE: [number, number] = [2000, 4000];
 /** ドラッグで投げた時の初速クランプ (px/s) */
 export const THROW_MAX_SPEED = 700;
+
+// --- 訪問の挨拶 ---
+/** 久しぶりの再訪時に連発する喜びジャンプの回数 */
+export const GREETING_JOY_HOPS = 3;
+const JOY_HOP_VY = -280;
+const JOY_HOP_VX = 15;
+/** あくびの長さ (ms) */
+export const YAWN_DURATION = 1800;
 /** この実効風以上で接地中も押し流される */
 export const WIND_PUSH_THRESHOLD = 0.8;
 const WIND_PUSH_SPEED = 20; // px/s（wind=1 のとき）
@@ -163,6 +176,8 @@ export function createResident(viewport: Viewport, rand: Rand = Math.random): Re
     targetX: null,
     teleportTarget: null,
     pendingCower: false,
+    pendingGreeting: null,
+    greetingHops: 0,
   };
 }
 
@@ -200,6 +215,20 @@ export function grab(state: ResidentState): void {
   state.headSnow = 0;
   state.teleportTarget = null;
   state.pendingCower = false;
+  state.pendingGreeting = null;
+  state.greetingHops = 0;
+}
+
+/** 訪問時の挨拶リアクションを予約する（最初の着地後に発動） */
+export function setGreeting(state: ResidentState, kind: "joy" | "sleepy"): void {
+  state.pendingGreeting = kind;
+}
+
+/** 喜びジャンプ 1 回ぶんの小さな跳ね */
+function joyHop(state: ResidentState): void {
+  const facing = state.facing;
+  enterFall(state, facing * JOY_HOP_VX, JOY_HOP_VY);
+  state.facing = facing;
 }
 
 /** 掴まれ中の足元位置をポインタに追従させる */
@@ -455,6 +484,9 @@ export function tick(
     env.lightning < LIGHTNING_ACTIVE_THRESHOLD &&
     state.name !== "cower"
   ) {
+    // 雨宿りを優先し、未消費の挨拶は取りやめる
+    state.pendingGreeting = null;
+    state.greetingHops = 0;
     const spot = findShelterSpot(platforms, platform, state);
     if (spot !== null) {
       state.targetX = spot;
@@ -514,14 +546,40 @@ export function tick(
     return;
   }
 
+  if (state.name === "yawn") {
+    // あくびが終わったら、夜ならそのまま眠る
+    if (state.stateTime >= state.stateDuration) {
+      if (env.isNight) {
+        enterState(state, "sleep", 0);
+      } else {
+        enterState(state, "idle", randomIn(IDLE_DURATION_RANGE, rand));
+      }
+    }
+    return;
+  }
+
   if (state.name === "land") {
     if (state.stateTime >= state.stateDuration) {
       if (state.pendingCower) {
         state.pendingCower = false;
         enterState(state, "cower", randomIn(COWER_DURATION_RANGE, rand));
-      } else {
-        enterState(state, "idle", randomIn(IDLE_DURATION_RANGE, rand));
+        return;
       }
+      // 訪問の挨拶（最初の着地後に発動）
+      if (state.pendingGreeting === "joy") {
+        state.pendingGreeting = null;
+        state.greetingHops = GREETING_JOY_HOPS;
+      } else if (state.pendingGreeting === "sleepy") {
+        state.pendingGreeting = null;
+        enterState(state, "yawn", YAWN_DURATION);
+        return;
+      }
+      if (state.greetingHops > 0) {
+        state.greetingHops -= 1;
+        joyHop(state);
+        return;
+      }
+      enterState(state, "idle", randomIn(IDLE_DURATION_RANGE, rand));
     }
     return;
   }
