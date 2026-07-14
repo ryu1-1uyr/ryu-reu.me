@@ -1,7 +1,9 @@
 "use client";
 
 import { useWindowManager } from "@/app/contexts/WindowManager";
+import { useUmbrella } from "@/app/contexts/Umbrella";
 import { WINDOW_REGISTRY } from "@/app/config/windowRegistry";
+import { useIsMobile } from "@/app/hooks/useIsMobile";
 
 type Props = {
   open: boolean;
@@ -10,6 +12,8 @@ type Props = {
 
 export default function StartMenu({ open, onClose }: Props) {
   const { windows, openWindow } = useWindowManager();
+  const umbrella = useUmbrella();
+  const isMobile = useIsMobile();
 
   if (!open) return null;
 
@@ -54,6 +58,32 @@ export default function StartMenu({ open, onClose }: Props) {
             </button>
           );
         })}
+
+        {/* umbrella.exe: カーソルが傘になるトグル（ポインタのあるデスクトップのみ） */}
+        {!isMobile && umbrella && (
+          <button
+            type="button"
+            onClick={() => {
+              umbrella.toggle();
+              onClose();
+            }}
+            className={`
+              w-full text-left px-3 py-2 text-sm flex items-center gap-2
+              hover:bg-elements-button/20 transition-colors
+              ${
+                umbrella.active
+                  ? "text-elements-paragraph/50"
+                  : "text-elements-headline"
+              }
+            `}
+          >
+            <span className="text-base">☂️</span>
+            <span className="truncate">umbrella.exe</span>
+            <span className="ml-auto text-[10px] text-elements-button">
+              {umbrella.active ? "終了" : "起動"}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* フッター */}

@@ -7,6 +7,8 @@ import {
 } from "@/app/contexts/WindowManager";
 import { SurfaceRegistryProvider } from "@/app/contexts/SurfaceRegistry";
 import { WeatherFxBusProvider } from "@/app/contexts/WeatherFxBus";
+import { UmbrellaProvider, useUmbrella } from "@/app/contexts/Umbrella";
+import UmbrellaCursor from "@/app/components/Umbrella/UmbrellaCursor";
 import RetroWindow from "@/app/components/RetroWindow";
 import Taskbar from "@/app/components/Taskbar";
 import WeatherFxOverlay from "@/app/components/WeatherFxOverlay/WeatherFxOverlay";
@@ -26,6 +28,7 @@ type Props = {
 function DesktopInner({ contents }: Props) {
   const { windows, closeWindow, focusWindow } = useWindowManager();
   const isMobile = useIsMobile();
+  const umbrella = useUmbrella();
 
   return (
     <SurfaceRegistryProvider>
@@ -68,6 +71,7 @@ function DesktopInner({ contents }: Props) {
         {!isMobile && <WeatherFxOverlay />}
         {!isMobile && <Resident skin={pinkSkin} />}
         {!isMobile && <Resident skin={blueSkin} />}
+        {!isMobile && umbrella?.active && <UmbrellaCursor />}
       </WeatherFxBusProvider>
     </SurfaceRegistryProvider>
   );
@@ -76,7 +80,9 @@ function DesktopInner({ contents }: Props) {
 export default function Desktop(props: Props) {
   return (
     <WindowManagerProvider>
-      <DesktopInner {...props} />
+      <UmbrellaProvider>
+        <DesktopInner {...props} />
+      </UmbrellaProvider>
     </WindowManagerProvider>
   );
 }
