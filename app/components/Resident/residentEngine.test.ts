@@ -267,12 +267,39 @@ describe("雨宿り", () => {
     expect(state.targetX).toBeNull();
   });
 
-  it("屋根のない足場では rain がしきい値を超えるとその場で shelter になる", () => {
+  it("屋根のない足場（非最下層）では、近い方の端へ向かって降りに行く", () => {
     const rainy: ResidentEnv = { ...CALM_ENV, rain: 1 };
-    const state = makeState({ name: "idle", platformId: "win-a", x: 300 });
+    // WINDOW_A の左端寄りに立たせる → 左端から降りるはず
+    const state = makeState({ name: "idle", platformId: "win-a", x: 150 });
     tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, rainy);
+    expect(state.name).toBe("shelterDescend");
+    expect(state.facing).toBe(-1);
+  });
+
+  it("最下層の足場に屋根がなければ、従来どおりその場で shelter になる", () => {
+    const rainy: ResidentEnv = { ...CALM_ENV, rain: 1 };
+    const state = makeState({ name: "idle", platformId: "__ground", x: 300, y: 720 });
+    tick(state, 16, [GROUND], VIEWPORT, () => 0.5, rainy);
     expect(state.name).toBe("shelter");
     expect(state.targetX).toBeNull();
+  });
+
+  it("窓の上から降りて、雨の影（屋根の下）まで多段で移動して雨宿りする", () => {
+    const rainy: ResidentEnv = { ...CALM_ENV, rain: 1 };
+    // WINDOW_A(y=300) には屋根がない。地面には ROOF の影がある
+    const state = makeState({ name: "idle", platformId: "win-a", x: 300 });
+    run(state, 30000, [WINDOW_A, ROOF, GROUND], () => 0.5, rainy);
+    expect(state.name).toBe("shelter");
+    expect(state.platformId).toBe("__ground");
+    // 屋根下区間 [506, 794] の中で縮こまっている（到着判定の ±2px を許容）
+    expect(state.x).toBeGreaterThanOrEqual(ROOF.x + EDGE_MARGIN - 2);
+    expect(state.x).toBeLessThanOrEqual(ROOF.x + ROOF.width - EDGE_MARGIN + 2);
+  });
+
+  it("降りている途中で雨が止んだら idle に戻る", () => {
+    const state = makeState({ name: "shelterDescend", platformId: "win-a", x: 300 });
+    tick(state, 16, [WINDOW_A, GROUND], VIEWPORT, () => 0.5, { ...CALM_ENV, rain: 0.2 });
+    expect(state.name).toBe("idle");
   });
 
   it("CALM_ENV（rain=0）では雨宿りが発動しない", () => {

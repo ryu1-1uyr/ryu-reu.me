@@ -47,3 +47,9 @@
   color: rgba(0, 0, 0, 0.35);
   user-select: none;
 }
+
+/* umbrella.exe: カーソルが傘になっている間はシステムカーソルを隠す */
+.umbrella-mode,
+.umbrella-mode * {
+  cursor: none !important;
+}

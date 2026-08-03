@@ -7,6 +7,16 @@ const VELOCITY_SCALE = 0.05;
 /** これより間隔が空いたサンプルは速度計算に使わない (ms) */
 const MAX_SAMPLE_GAP = 100;
 
+// 傘モード（umbrella.exe）中はポインタ由来の突風を止める。
+// attachGustTracker は複数箇所（SkyCanvas / WeatherFxOverlay）から使われるため、
+// モジュールレベルの共有フラグで全リスナーを一括制御する。
+let suppressed = false;
+
+/** ポインタ連動の突風を一時停止/再開する */
+export function setGustSuppressed(value: boolean): void {
+  suppressed = value;
+}
+
 /**
  * pointermove からポインタの水平速度を計測し、
  * エンジンの gust へ突風インパルスとして流し込む。
@@ -18,6 +28,11 @@ export function attachGustTracker(engine: WeatherEngineState): () => void {
   let hasLast = false;
 
   const onMove = (e: PointerEvent) => {
+    if (suppressed) {
+      // 再開時に大きな見かけ速度が出ないようサンプルを捨てる
+      hasLast = false;
+      return;
+    }
     const now = performance.now();
     if (hasLast) {
       const deltaT = now - lastT;

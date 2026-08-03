@@ -11,6 +11,8 @@ import {
 } from "./weatherEngine";
 import { attachGustTracker } from "./gustTracker";
 import { emitThunder } from "./thunderBus";
+import { isShadowed, type ShadowRect } from "./rainShadow";
+import { getRegisteredSurfaces } from "@/app/contexts/SurfaceRegistry";
 
 type Props = {
   phase: SkyPhase;
@@ -840,6 +842,7 @@ function drawRain(
   intensity: number,
   storminess: number,
   wind: number,
+  shadows: ShadowRect[],
 ) {
   if (intensity <= 0) return;
   const activeCount = Math.ceil(drops.length * Math.min(intensity, 1));
@@ -859,6 +862,9 @@ function drawRain(
     }
     if (drop.x < -30) drop.x += w + 60;
     else if (drop.x > w + 30) drop.x -= w + 60;
+
+    // 雨の影: サーフェスの下では雨は届かないので描かない（移動は続ける）
+    if (isShadowed(drop.x, drop.y, shadows)) continue;
 
     ctx.beginPath();
     ctx.moveTo(drop.x, drop.y);
@@ -948,6 +954,7 @@ function drawSnow(
   dt: number,
   intensity: number,
   wind: number,
+  shadows: ShadowRect[],
 ) {
   if (intensity <= 0) return;
   const activeCount = Math.ceil(flakes.length * Math.min(intensity, 1));
@@ -966,6 +973,9 @@ function drawSnow(
     }
     if (flake.x < -10) flake.x += w + 20;
     else if (flake.x > w + 10) flake.x -= w + 20;
+
+    // 雨の影と同じ理屈で、サーフェスの下には雪も届かない
+    if (isShadowed(flake.x, flake.y, shadows)) continue;
 
     ctx.beginPath();
     ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
@@ -1259,6 +1269,16 @@ export default function SkyCanvas({
         );
       }
 
+      // 雨の影: 登録サーフェス（ウィンドウ・タスクバー）の下では
+      // 背景の雨・雪を描かない。矩形は降水がある時だけ毎フレーム取得する
+      const shadowRects: ShadowRect[] = [];
+      if (channels.rain > 0 || channels.snow > 0) {
+        getRegisteredSurfaces().forEach((el) => {
+          const r = el.getBoundingClientRect();
+          shadowRects.push({ x: r.x, y: r.y, width: r.width });
+        });
+      }
+
       if (channels.rain > 0) {
         drawRain(
           ctx,
@@ -1269,6 +1289,7 @@ export default function SkyCanvas({
           channels.rain,
           channels.lightning,
           effWind,
+          shadowRects,
         );
       }
 
@@ -1282,6 +1303,7 @@ export default function SkyCanvas({
           dt,
           channels.snow,
           effWind,
+          shadowRects,
         );
       }
 

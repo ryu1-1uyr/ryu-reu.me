@@ -23,6 +23,7 @@ export type ResidentStateName =
   | "startle"
   | "shelterSeek"
   | "shelter"
+  | "shelterDescend"
   | "teleportOut"
   | "teleportIn"
   | "cower"
@@ -477,7 +478,10 @@ export function tick(
 
   // 優先度②: 雨宿り（sleep 中でも雨が強まれば起きて動き出す）。
   // 雷天候の間は常時縮こまりを避け、雷鳴ごとの startle → cower に任せる
-  const inShelterFlow = state.name === "shelterSeek" || state.name === "shelter";
+  const inShelterFlow =
+    state.name === "shelterSeek" ||
+    state.name === "shelter" ||
+    state.name === "shelterDescend";
   if (
     !inShelterFlow &&
     env.rain >= SHELTER_ENTER_RAIN &&
@@ -491,9 +495,17 @@ export function tick(
     if (spot !== null) {
       state.targetX = spot;
       enterState(state, "shelterSeek", 0);
-    } else {
+    } else if (platform.y >= viewport.height - BOTTOM_ZONE_PX) {
+      // 最下層まで来ても屋根がない: その場で身を縮めて耐える
       state.targetX = null;
       enterState(state, "shelter", 0);
+    } else {
+      // この足場に屋根がない: 近い方の端から降りて、雨の当たらない場所を探しに行く
+      // （着地のたびにこの判定が再評価され、影が見つかるまで降りていく）
+      state.targetX = null;
+      const [descMin, descMax] = walkRange(platform);
+      state.facing = state.x - descMin < descMax - state.x ? -1 : 1;
+      enterState(state, "shelterDescend", 0);
     }
     return;
   }
@@ -535,6 +547,24 @@ export function tick(
 
   if (state.name === "shelter") {
     // 屋根の下で身を縮めてじっと待つ（強風の押し流しは上で適用済み）
+    return;
+  }
+
+  if (state.name === "shelterDescend") {
+    // 降りている途中で現在の足場に屋根が見つかれば乗り換える（ウィンドウ移動対応）
+    const spot = findShelterSpot(platforms, platform, state);
+    if (spot !== null) {
+      state.targetX = spot;
+      enterState(state, "shelterSeek", 0);
+      return;
+    }
+    const nextX = state.x + state.facing * WALK_SPEED * dt;
+    if (nextX < minX || nextX > maxX) {
+      // 端に着いたら意図的に飛び降りる
+      enterFall(state, state.facing * WALK_SPEED);
+    } else {
+      state.x = nextX;
+    }
     return;
   }
 

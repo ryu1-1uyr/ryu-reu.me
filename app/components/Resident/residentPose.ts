@@ -50,7 +50,11 @@ export function computePose(
   let squashY = 1;
   let frame = 0;
 
-  if (state.name === "walk" || state.name === "shelterSeek") {
+  if (
+    state.name === "walk" ||
+    state.name === "shelterSeek" ||
+    state.name === "shelterDescend"
+  ) {
     bobY = Math.abs(Math.sin(state.stateTime / 90)) * -1.5;
     frame = Math.floor(state.stateTime / WALK_FRAME_MS) % WALK_FRAME_COUNT;
   } else if (state.name === "land") {
