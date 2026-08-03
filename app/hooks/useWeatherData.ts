@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import type { WeatherData } from "@/types/weather";
 
 type WeatherResult = {
@@ -32,6 +32,36 @@ function saveCache(data: WeatherData) {
   } catch {
     // sessionStorage が使えなくても無視
   }
+}
+
+// sessionStorage はサーバーに存在しないので、キャッシュの読み出しは
+// useSyncExternalStore で扱う。サーバー snapshot を null に固定することで
+// 「サーバーは常に未取得 / クライアントはキャッシュ値」を hydration mismatch
+// なしに切り替えられる（マウント後に setState する形だと effect 内 setState になる）。
+let cacheSnapshot: WeatherData | null | undefined;
+const cacheListeners = new Set<() => void>();
+
+function getCacheSnapshot(): WeatherData | null {
+  // getSnapshot は呼ぶたび同じ参照を返す必要があるため初回の結果を保持する
+  if (cacheSnapshot === undefined) cacheSnapshot = loadCache()?.data ?? null;
+  return cacheSnapshot;
+}
+
+function getServerCacheSnapshot(): WeatherData | null {
+  return null;
+}
+
+function subscribeCache(listener: () => void): () => void {
+  cacheListeners.add(listener);
+  return () => {
+    cacheListeners.delete(listener);
+  };
+}
+
+/** 取得した天気をストアに反映して購読中のフックへ配る */
+function publishWeather(data: WeatherData) {
+  cacheSnapshot = data;
+  cacheListeners.forEach((listener) => listener());
 }
 
 // タイムアウト付き fetch
@@ -72,17 +102,18 @@ function cancelIdle(handle: IdleHandle) {
 }
 
 export function useWeatherData(): WeatherResult {
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const weatherData = useSyncExternalStore(
+    subscribeCache,
+    getCacheSnapshot,
+    getServerCacheSnapshot
+  );
+  const [fetchSettled, setFetchSettled] = useState(false);
 
   useEffect(() => {
-    // sessionStorage キャッシュが新鮮ならそれを使う（fetch ゼロ回）
-    const cached = loadCache();
-    if (cached) {
-      setWeatherData(cached.data);
-      setIsLoading(false);
-      return;
-    }
+    // sessionStorage キャッシュが新鮮ならそれを使う（fetch ゼロ回）。
+    // hydration 直後は render 時点の値がサーバー snapshot のことがあるため、
+    // ここでは render 結果ではなくストアを直接読む。
+    if (getCacheSnapshot()) return;
 
     const controller = new AbortController();
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -100,13 +131,13 @@ export function useWeatherData(): WeatherResult {
 
         if (!controller.signal.aborted) {
           saveCache(data);
-          setWeatherData(data);
+          publishWeather(data);
         }
       } catch {
         // タイムアウト・ネットワークエラー → null のまま（時刻ベースの空にフォールバック）
       } finally {
         if (timeoutId !== null) clearTimeout(timeoutId);
-        if (!controller.signal.aborted) setIsLoading(false);
+        if (!controller.signal.aborted) setFetchSettled(true);
       }
     }
 
@@ -122,5 +153,5 @@ export function useWeatherData(): WeatherResult {
     };
   }, []);
 
-  return { weatherData, isLoading };
+  return { weatherData, isLoading: weatherData === null && !fetchSettled };
 }

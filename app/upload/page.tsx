@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  useState,
+  useEffect,
+  useSyncExternalStore,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useRouter } from "next/navigation";
 import PostEditor, {
   EMPTY_POST_FORM,
@@ -10,12 +16,17 @@ import PostEditor, {
 
 const DRAFT_KEY = "upload-draft";
 
-function loadDraft() {
+type StoredDraft = {
+  form: PostFormValue;
+  savedAt: string;
+};
+
+function loadDraft(): StoredDraft | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as {
+    const parsed = JSON.parse(raw) as {
       title: string;
       content: string;
       published: boolean;
@@ -23,31 +34,64 @@ function loadDraft() {
       ogImage?: string | null;
       savedAt: string;
     };
+    return {
+      form: {
+        title: parsed.title,
+        content: parsed.content,
+        published: parsed.published,
+        tags: parsed.tags ?? [],
+        ogImage: parsed.ogImage ?? null,
+      },
+      savedAt: parsed.savedAt,
+    };
   } catch {
     return null;
   }
 }
 
+// localStorage はサーバーに存在しないので、下書きの読み出しは
+// useSyncExternalStore で扱う。サーバー snapshot を null に固定することで
+// hydration 後に復元へ切り替わる（マウント後に setState する形だと
+// effect 内 setState になり、Hydration エラーの回避にもならない）。
+let draftSnapshot: StoredDraft | null | undefined;
+
+function getDraftSnapshot(): StoredDraft | null {
+  // getSnapshot は呼ぶたび同じ参照を返す必要があるため初回の結果を保持する
+  if (draftSnapshot === undefined) draftSnapshot = loadDraft();
+  return draftSnapshot;
+}
+
+function getServerDraftSnapshot(): StoredDraft | null {
+  return null;
+}
+
+// 復元した下書きは読み出し後に変化しない（破棄はページごとリロードする）
+function subscribeDraft(): () => void {
+  return () => {};
+}
+
 export default function UploadPage() {
-  const [value, setValue] = useState<PostFormValue>(EMPTY_POST_FORM);
+  const restored = useSyncExternalStore(
+    subscribeDraft,
+    getDraftSnapshot,
+    getServerDraftSnapshot
+  );
+  const [edited, setEdited] = useState<PostFormValue | null>(null);
   const [message, setMessage] = useState<EditorMessage | null>(null);
-  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
   const router = useRouter();
 
-  // HydrationのエラーがうざいのでHTMLマウント後にlocalStorageから下書きを復元
-  useEffect(() => {
-    const draft = loadDraft();
-    if (draft) {
-      setValue({
-        title: draft.title,
-        content: draft.content,
-        published: draft.published,
-        tags: draft.tags ?? [],
-        ogImage: draft.ogImage ?? null,
-      });
-      setDraftRestoredAt(draft.savedAt);
-    }
-  }, []);
+  const draftRestoredAt = restored?.savedAt ?? null;
+
+  // まだ編集していない間は復元した下書きをそのまま表示する
+  const value = edited ?? restored?.form ?? EMPTY_POST_FORM;
+
+  // PostEditor は関数型アップデータを渡してくるので、表示中の値を基準に解決する
+  const handleChange: Dispatch<SetStateAction<PostFormValue>> = (action) => {
+    setEdited((prev) => {
+      const base = prev ?? restored?.form ?? EMPTY_POST_FORM;
+      return typeof action === "function" ? action(base) : action;
+    });
+  };
 
   // 自動保存（1秒デバウンス）
   useEffect(() => {
@@ -95,7 +139,7 @@ export default function UploadPage() {
     <PostEditor
       heading="記事エディタ"
       value={value}
-      onChange={setValue}
+      onChange={handleChange}
       onSave={handleSave}
       saveLabel="記事を保存"
       savingLabel="保存中..."
@@ -111,7 +155,7 @@ export default function UploadPage() {
             <button
               onClick={() => {
                 clearDraft();
-                setValue(EMPTY_POST_FORM);
+                setEdited(EMPTY_POST_FORM);
                 setMessage(null);
                 window.location.reload();
               }}
