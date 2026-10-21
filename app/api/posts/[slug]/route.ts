@@ -27,7 +27,7 @@ export async function GET(
 
   const post = await prisma.post.findUnique({
     where: { slug },
-    include: { author: true, tags: { include: { tag: true } } },
+    include: { tags: { include: { tag: true } } },
   });
 
   if (!post || (!IS_DEV && !post.published)) {
@@ -39,7 +39,6 @@ export async function GET(
     title: post.title,
     slug: post.slug,
     published: post.published,
-    authorEmail: post.author.email,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     content: post.content,
@@ -109,7 +108,7 @@ export async function PUT(
           })),
         },
       },
-      include: { author: true, tags: { include: { tag: true } } },
+      include: { tags: { include: { tag: true } } },
     });
   });
 
@@ -139,7 +138,6 @@ export async function PUT(
     title: updated.title,
     slug: updated.slug,
     published: updated.published,
-    authorEmail: updated.author.email,
     createdAt: updated.createdAt,
     updatedAt: updated.updatedAt,
     content: updated.content,
