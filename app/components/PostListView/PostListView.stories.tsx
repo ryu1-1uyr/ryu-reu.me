@@ -18,7 +18,6 @@ const samplePosts = [
     id: "1",
     title: "Next.jsとSupabaseで作るフルスタックアプリ",
     slug: "nextjs-supabase-fullstack",
-    authorEmail: "author@example.com",
     createdAt: new Date("2026-03-01"),
     updatedAt: new Date("2026-03-05"),
     content:
@@ -28,7 +27,6 @@ const samplePosts = [
     id: "2",
     title: "TailwindCSSのベストプラクティス",
     slug: "tailwindcss-best-practices",
-    authorEmail: "writer@example.com",
     createdAt: new Date("2026-02-20"),
     updatedAt: new Date("2026-02-22"),
     content:
@@ -38,7 +36,6 @@ const samplePosts = [
     id: "3",
     title: "Prismaで始めるORM入門",
     slug: "prisma-orm-intro",
-    authorEmail: "dev@example.com",
     createdAt: new Date("2026-02-10"),
     updatedAt: new Date("2026-02-10"),
     content:

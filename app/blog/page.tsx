@@ -38,7 +38,7 @@ const getBlogPageData = unstable_cache(
       prisma.post.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        include: { author: true, tags: { include: { tag: true } } },
+        include: { tags: { include: { tag: true } } },
         skip: (page - 1) * POSTS_PER_PAGE,
         take: POSTS_PER_PAGE,
       }),
@@ -54,7 +54,6 @@ const getBlogPageData = unstable_cache(
         id: post.id,
         title: post.title,
         slug: post.slug,
-        authorEmail: post.author.email,
         createdAt: post.createdAt.toISOString(),
         content: post.content,
         tags: post.tags.map((pt) => pt.tag.name),
@@ -159,7 +158,6 @@ export default async function BlogPage({
                   id={post.id}
                   slug={post.slug}
                   title={post.title}
-                  authorEmail={post.authorEmail}
                   createdAt={new Date(post.createdAt)}
                   content={post.content}
                   tags={post.tags}
