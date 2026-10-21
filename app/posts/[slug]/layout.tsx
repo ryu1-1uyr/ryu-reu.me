@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getPostBySlug } from "@/lib/queries";
+import { IS_DEV } from "@/lib/env";
 
 // ISR: 1日。記事更新時は revalidatePath(`/posts/${slug}`) で明示破棄想定。
 export const revalidate = 86400;
@@ -15,7 +16,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const post = await getPostBySlug(slug);
 
-  if (!post) {
+  // page.tsx と同じ条件。下書きのタイトル・冒頭が <head> に漏れないようにする
+  if (!post || (!IS_DEV && !post.published)) {
     // { absolute: ... } で root layout の title template (%s | サイト名) を bypass
     return { title: { absolute: "りゆうのブログ: 記事が見つかりません" } };
   }
