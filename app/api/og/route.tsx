@@ -4,6 +4,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { IS_DEV } from "@/lib/env";
 import { OgCard } from "@/app/components/OgCard";
 
 export const runtime = "nodejs";
@@ -68,9 +69,9 @@ const resolveFromSlug = unstable_cache(
   async (slug: string) => {
     const post = await prisma.post.findUnique({
       where: { slug: decodeURIComponent(slug) },
-      select: { title: true, content: true },
+      select: { title: true, content: true, published: true },
     });
-    if (!post) return null;
+    if (!post || (!IS_DEV && !post.published)) return null;
     return {
       title: post.title,
       description: extractDescription(post.content),
@@ -94,8 +95,10 @@ export async function GET(request: NextRequest) {
 
   if (titleParam) {
     // 高速パス: layout.tsx から title + desc が直接来るケース
-    title = titleParam;
-    description = descParam ?? undefined;
+    // 未認証で任意テキストを受けるため、正規の呼び出し元（desc は 120 字で切り出し済み）
+    // を超える長さは切り詰めて描画コストと悪用の余地を抑える
+    title = titleParam.slice(0, 100);
+    description = descParam?.slice(0, 120) ?? undefined;
   } else if (slugParam) {
     // フォールバック: 旧 URL や直接アクセスで slug のみのケース
     const resolved = await resolveFromSlug(slugParam);
