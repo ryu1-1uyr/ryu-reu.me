@@ -5,7 +5,6 @@ type Props = {
   id: string;
   slug: string;
   title: string;
-  authorEmail: string;
   createdAt: Date;
   content: string;
   tags?: string[];
@@ -26,7 +25,6 @@ function stripMarkdown(text: string): string {
 export default function PostCard({
   slug,
   title,
-  authorEmail,
   createdAt,
   content,
   tags,

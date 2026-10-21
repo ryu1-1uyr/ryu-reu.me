@@ -5,7 +5,6 @@ export type PostItem = {
   id: string;
   title: string;
   slug: string;
-  authorEmail: string;
   createdAt: Date;
   updatedAt: Date;
   content: string;
@@ -40,7 +39,6 @@ export default function PostListView({ posts, showMoreLink = false, showHeading 
           id={post.id}
           slug={post.slug}
           title={post.title}
-          authorEmail={post.authorEmail}
           createdAt={post.createdAt}
           content={post.content}
           tags={post.tags}

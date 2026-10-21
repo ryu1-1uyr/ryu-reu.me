@@ -11,7 +11,7 @@ const getRecentPosts = unstable_cache(
     const posts = await prisma.post.findMany({
       where: IS_DEV ? undefined : { published: true },
       orderBy: { createdAt: "desc" },
-      include: { author: true, tags: { include: { tag: true } } },
+      include: { tags: { include: { tag: true } } },
       take: 3,
     });
 
@@ -19,7 +19,6 @@ const getRecentPosts = unstable_cache(
       id: post.id,
       title: post.title,
       slug: post.slug,
-      authorEmail: post.author.email,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
       content: post.content,
