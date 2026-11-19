@@ -48,10 +48,6 @@ const nextConfig = {
       static: 300,
     },
   },
-  outputFileTracingIncludes: {
-    "/api/**/*": ["./node_modules/.prisma/client/**/*"],
-    "/*": ["./node_modules/.prisma/client/**/*"],
-  },
   images: {
     remotePatterns: [
       {
