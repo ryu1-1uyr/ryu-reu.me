@@ -74,6 +74,11 @@ export default function PostEditor({
     (content: string) => onChange((prev) => ({ ...prev, content })),
     [onChange]
   );
+  const updateContent = useCallback(
+    (update: (prev: string) => string) =>
+      onChange((prev) => ({ ...prev, content: update(prev.content) })),
+    [onChange]
+  );
 
   const {
     uploading,
@@ -87,8 +92,7 @@ export default function PostEditor({
     handleDragLeave,
   } = useImageUpload({
     textareaRef,
-    content: value.content,
-    onContentChange: setContent,
+    onContentChange: updateContent,
     onError: (text) => onMessage({ type: "error", text }),
   });
 
