@@ -74,6 +74,11 @@ export default function PostEditor({
     (content: string) => onChange((prev) => ({ ...prev, content })),
     [onChange]
   );
+  const updateContent = useCallback(
+    (update: (prev: string) => string) =>
+      onChange((prev) => ({ ...prev, content: update(prev.content) })),
+    [onChange]
+  );
 
   const {
     uploading,
@@ -82,12 +87,12 @@ export default function PostEditor({
     uploadImage,
     removeFailedUpload,
     handleDrop,
+    handlePaste,
     handleDragOver,
     handleDragLeave,
   } = useImageUpload({
     textareaRef,
-    content: value.content,
-    onContentChange: setContent,
+    onContentChange: updateContent,
     onError: (text) => onMessage({ type: "error", text }),
   });
 
@@ -205,9 +210,10 @@ export default function PostEditor({
               onChange={(e) => setContent(e.target.value)}
               onScroll={handleEditorScroll}
               onDrop={handleDrop}
+              onPaste={handlePaste}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
-              placeholder="Markdown で記事を書く... 画像はドラッグ&ドロップで挿入できるよ"
+              placeholder="Markdown で記事を書く... 画像はドラッグ&ドロップかペーストで挿入できるよ"
               className={`w-full h-[600px] px-4 py-3 rounded-lg bg-elements-headline text-gray-900 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-elements-button transition-all ${
                 isDragOver
                   ? "ring-2 ring-elements-button ring-offset-2 ring-offset-elements-background"

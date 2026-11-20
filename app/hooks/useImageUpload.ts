@@ -1,7 +1,19 @@
 "use client";
 
-import { useState, useCallback, type DragEvent, type RefObject } from "react";
+import {
+  useState,
+  useCallback,
+  type ClipboardEvent,
+  type DragEvent,
+  type RefObject,
+} from "react";
 import { useRouter } from "next/navigation";
+import { pickPastedImages, preparePastedImage } from "./pastedImage";
+import {
+  insertPlaceholders,
+  resolvePlaceholder,
+  uploadingPlaceholder,
+} from "./uploadPlaceholder";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -13,8 +25,8 @@ export type FailedUpload = {
 
 type Options = {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
-  content: string;
-  onContentChange: (content: string) => void;
+  /** 本文を最新の値から更新する (アップロード完了時に他の変更を消さないため) */
+  onContentChange: (update: (prev: string) => string) => void;
   /** 画像以外のファイルがドロップされた等のエラー通知 */
   onError: (message: string) => void;
 };
@@ -33,28 +45,23 @@ function validateFile(file: File): string | null {
 /**
  * エディタ用の画像アップロードフック。
  * /api/upload への送信、バリデーション、textarea カーソル位置への
- * markdown 挿入、D&D ハンドリング、失敗リトライの管理をまとめる。
+ * markdown 挿入、D&D・ペーストのハンドリング、失敗リトライの管理をまとめる。
+ * 挿入はプレースホルダー方式で、複数枚の同時アップロードや入力中の文字を壊さない。
  */
 export function useImageUpload({
   textareaRef,
-  content,
   onContentChange,
   onError,
 }: Options) {
   const router = useRouter();
-  const [uploading, setUploading] = useState(false);
+  // 同時に複数走るので件数で持つ
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [failedUploads, setFailedUploads] = useState<FailedUpload[]>([]);
 
-  const uploadImage = useCallback(
-    async (file: File) => {
-      const validationError = validateFile(file);
-      if (validationError) {
-        setFailedUploads((prev) => [...prev, { file, error: validationError }]);
-        return;
-      }
-
-      setUploading(true);
+  const sendFile = useCallback(
+    async (file: File, placeholder: string) => {
+      setUploadingCount((n) => n + 1);
       try {
         const formData = new FormData();
         formData.append("file", file);
@@ -64,6 +71,7 @@ export function useImageUpload({
           body: formData,
         });
         if (res.status === 401) {
+          onContentChange((prev) => resolvePlaceholder(prev, placeholder, null));
           router.push("/login");
           return;
         }
@@ -73,39 +81,68 @@ export function useImageUpload({
 
         // 成功したらリトライリストから除去
         setFailedUploads((prev) => prev.filter((f) => f.file !== file));
-
-        // カーソル位置に markdown 画像構文を挿入
-        const textarea = textareaRef.current;
-        const imageMarkdown = `![${file.name}](${data.url})`;
-
-        if (textarea) {
-          const start = textarea.selectionStart;
-          const end = textarea.selectionEnd;
-          const newContent =
-            content.substring(0, start) +
-            imageMarkdown +
-            content.substring(end);
-          onContentChange(newContent);
-
-          requestAnimationFrame(() => {
-            textarea.selectionStart = textarea.selectionEnd =
-              start + imageMarkdown.length;
-            textarea.focus();
-          });
-        } else {
-          onContentChange(content + "\n" + imageMarkdown);
-        }
+        onContentChange((prev) =>
+          resolvePlaceholder(prev, placeholder, `![${file.name}](${data.url})`)
+        );
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "unknown";
+        onContentChange((prev) => resolvePlaceholder(prev, placeholder, null));
         setFailedUploads((prev) => [
           ...prev.filter((f) => f.file !== file),
           { file, error: errorMsg },
         ]);
       } finally {
-        setUploading(false);
+        setUploadingCount((n) => n - 1);
       }
     },
-    [content, onContentChange, router, textareaRef]
+    [onContentChange, router]
+  );
+
+  /** 検証を通った画像のプレースホルダーをカーソル位置にまとめて置き、並列で送る */
+  const uploadImages = useCallback(
+    (files: File[]) => {
+      const valid: File[] = [];
+      for (const file of files) {
+        const validationError = validateFile(file);
+        if (validationError) {
+          setFailedUploads((prev) => [...prev, { file, error: validationError }]);
+        } else {
+          valid.push(file);
+        }
+      }
+      if (valid.length === 0) return;
+
+      const placeholders = valid.map((file) =>
+        uploadingPlaceholder(file.name, crypto.randomUUID())
+      );
+
+      const textarea = textareaRef.current;
+      const start = textarea?.selectionStart;
+      const end = textarea?.selectionEnd;
+      let cursor: number | null = null;
+      onContentChange((prev) => {
+        const at = start ?? prev.length;
+        const inserted = insertPlaceholders(prev, at, end ?? at, placeholders);
+        cursor = inserted.cursor;
+        return inserted.content;
+      });
+      if (textarea) {
+        requestAnimationFrame(() => {
+          if (cursor === null) return;
+          textarea.selectionStart = textarea.selectionEnd = cursor;
+          textarea.focus();
+        });
+      }
+
+      valid.forEach((file, i) => sendFile(file, placeholders[i]));
+    },
+    [onContentChange, sendFile, textareaRef]
+  );
+
+  /** 単体アップロード (リトライ用) */
+  const uploadImage = useCallback(
+    (file: File) => uploadImages([file]),
+    [uploadImages]
   );
 
   const handleDrop = useCallback(
@@ -122,11 +159,27 @@ export function useImageUpload({
         return;
       }
 
-      for (const file of files) {
-        uploadImage(file);
-      }
+      uploadImages(files);
     },
-    [uploadImage, onError]
+    [uploadImages, onError]
+  );
+
+  // クリップボードに画像があればアップロードする (X などで「画像をコピー」したもの、スクショ等)。
+  // 画像が無ければ何もせず、通常のテキスト貼り付けに任せる
+  const handlePaste = useCallback(
+    async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+      const images = pickPastedImages(e.clipboardData.files);
+      if (images.length === 0) return;
+
+      // 画像と一緒に入っている HTML (<img src=...>) やテキストは貼らない
+      e.preventDefault();
+      const now = new Date();
+      const files = await Promise.all(
+        images.map((file, i) => preparePastedImage(file, now, i))
+      );
+      uploadImages(files);
+    },
+    [uploadImages]
   );
 
   const handleDragOver = useCallback((e: DragEvent<HTMLTextAreaElement>) => {
@@ -143,12 +196,13 @@ export function useImageUpload({
   }, []);
 
   return {
-    uploading,
+    uploading: uploadingCount > 0,
     isDragOver,
     failedUploads,
     uploadImage,
     removeFailedUpload,
     handleDrop,
+    handlePaste,
     handleDragOver,
     handleDragLeave,
   };
