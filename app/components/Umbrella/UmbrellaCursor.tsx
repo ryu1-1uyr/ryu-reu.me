@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { UMBRELLA_OPEN } from "@/app/config/motion";
 import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
 import PixelUmbrella from "./PixelUmbrella";
-import { UMBRELLA_COLS, UMBRELLA_ROWS } from "./umbrellaSprite";
+import { UMBRELLA_COLS, UMBRELLA_HOTSPOT, UMBRELLA_ROWS } from "./umbrellaSprite";
 
 /** 1 ドットの大きさ (px)。当たり判定ボックスはスプライトの大きさそのもの */
 const DOT = 5;
 const UMBRELLA_WIDTH = UMBRELLA_COLS * DOT;
 const UMBRELLA_HEIGHT = UMBRELLA_ROWS * DOT;
+/** カーソルの先 (クリック位置) が赤いドットの中心に来るオフセット */
+const HOTSPOT_X = (UMBRELLA_HOTSPOT.x + 0.5) * DOT;
+const HOTSPOT_Y = (UMBRELLA_HOTSPOT.y + 0.5) * DOT;
 
 /**
  * umbrella.exe: カーソルに追従する傘。
@@ -58,9 +61,9 @@ function Umbrella({
         moved = true;
         setShown(true);
       }
-      // カーソルの先がカサの中心あたりに来るように配置する
-      el.style.transform = `translate3d(${e.clientX - UMBRELLA_WIDTH / 2}px, ${
-        e.clientY - UMBRELLA_HEIGHT * 0.45
+      // カーソルの先 (クリック位置) が赤いドットの中心に来るように配置する
+      el.style.transform = `translate3d(${e.clientX - HOTSPOT_X}px, ${
+        e.clientY - HOTSPOT_Y
       }px, 0)`;
     };
     window.addEventListener("pointermove", onMove, { passive: true });

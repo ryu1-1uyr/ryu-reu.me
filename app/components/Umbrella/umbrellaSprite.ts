@@ -16,6 +16,7 @@ const PALETTE = {
   highlight: "#ffffff",
   handle: "#f2c57c",
   handleShade: "#c9944f",
+  hotspot: "#ff3b5c",
 } as const;
 
 type Color = (typeof PALETTE)[keyof typeof PALETTE];
@@ -24,6 +25,9 @@ type Color = (typeof PALETTE)[keyof typeof PALETTE];
 export type PixelRun = { x: number; y: number; w: number; color: Color };
 
 const CENTER = 10;
+
+/** クリック判定の位置 (ドット座標)。カーソルの先はこのドットの中心に来る */
+export const UMBRELLA_HOTSPOT = { x: CENTER, y: 9 } as const;
 const CANOPY_TOP = 1;
 const CANOPY_BOTTOM = 10;
 /** 骨 (パネルの境目) の裾での位置 (全開時) */
@@ -72,6 +76,11 @@ function makeShape(open: number) {
   };
 
   return (x: number, y: number): Color | null => {
+    // クリック位置の目印: 赤いドットを紺で囲む
+    const dx = Math.abs(x - UMBRELLA_HOTSPOT.x);
+    const dy = Math.abs(y - UMBRELLA_HOTSPOT.y);
+    if (dx === 0 && dy === 0) return PALETTE.hotspot;
+    if (dx + dy === 1) return PALETTE.outline;
     if (inCanopy(x, y)) return canopyColor(x, y);
     // 先端
     if (x === CENTER && y === 0) return PALETTE.outline;
