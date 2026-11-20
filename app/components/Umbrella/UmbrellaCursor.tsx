@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
-import { setGustSuppressed } from "@/app/components/SkyBackground/gustTracker";
 
 /** 傘の当たり判定ボックスの一辺 (px) */
 const UMBRELLA_SIZE = 100;
@@ -13,7 +12,7 @@ const UMBRELLA_SIZE = 100;
  * - 背景の雨・雪が傘の下に描かれない（雨の影）
  * - 前面の雨粒が傘の上辺で跳ねる（スプラッシュ）・雪が積もる
  * - 住人の雨宿り判定で「屋根」として扱われる（傘をかざすと入ってくる）
- * 表示中はポインタ連動の突風とシステムカーソルを止める。
+ * 表示中はシステムカーソルを止める。
  */
 export default function UmbrellaCursor() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -24,7 +23,6 @@ export default function UmbrellaCursor() {
     if (!el) return;
 
     registry?.register("umbrella", el);
-    setGustSuppressed(true);
     document.documentElement.classList.add("umbrella-mode");
 
     const onMove = (e: PointerEvent) => {
@@ -38,7 +36,6 @@ export default function UmbrellaCursor() {
     return () => {
       window.removeEventListener("pointermove", onMove);
       document.documentElement.classList.remove("umbrella-mode");
-      setGustSuppressed(false);
       // 登録解除で積もっていた雪は既存の仕組みで崩れ落ちる
       registry?.unregister("umbrella");
     };

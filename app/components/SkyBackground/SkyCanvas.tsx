@@ -9,7 +9,6 @@ import {
   tick,
   getEffectiveWind,
 } from "./weatherEngine";
-import { attachGustTracker } from "./gustTracker";
 import { emitThunder } from "./thunderBus";
 import { isShadowed, type ShadowRect } from "./rainShadow";
 import { getRegisteredSurfaces } from "@/app/contexts/SurfaceRegistry";
@@ -1332,12 +1331,10 @@ export default function SkyCanvas({
     };
 
     animId = requestAnimationFrame(render);
-    const detachGust = attachGustTracker(engineRef.current);
 
     return () => {
       running = false;
       cancelAnimationFrame(animId);
-      detachGust();
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("resize", resize);
     };
