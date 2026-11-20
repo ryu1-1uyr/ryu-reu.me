@@ -69,5 +69,10 @@
   },
   "volta": {
     "node": "24.22.1"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "effect": "^3.22.5"
+    }
   }
 }
