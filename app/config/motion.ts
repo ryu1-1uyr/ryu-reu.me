@@ -43,3 +43,10 @@ export const WINDOW_CLOSE = {
 export const MOTION_DURATION = {
   reduced: 0.12,
 } as const;
+
+/** umbrella.exe の傘が開く。ドット絵のコマ送り (開き具合 0..1 の列) */
+export const UMBRELLA_OPEN = {
+  frames: [0.15, 0.4, 0.7, 1],
+  /** 1 コマの長さ (ms) */
+  frameMs: 60,
+} as const;
