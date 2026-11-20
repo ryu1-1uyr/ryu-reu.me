@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback } from "react";
+import { createFrameGate } from "@/app/hooks/frameCap";
 import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
 import { useWeatherFxBus } from "@/app/contexts/WeatherFxBus";
 import { useWeatherData } from "@/app/hooks/useWeatherData";
@@ -66,6 +67,7 @@ export default function WeatherFxOverlay() {
 
     let rafId = 0;
     let lastTime = 0;
+    const frameGate = createFrameGate();
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio, 2);
@@ -78,6 +80,8 @@ export default function WeatherFxOverlay() {
 
     function loop(time: number) {
       rafId = requestAnimationFrame(loop);
+      // コマ数の上限があるときは間引く (delta は通ったフレーム間で測る)
+      if (!frameGate(time)) return;
       // タブ非表示から復帰した直後に巨大な delta が流れないようクランプ
       const delta = Math.min(lastTime ? time - lastTime : 16.67, 100);
       lastTime = time;

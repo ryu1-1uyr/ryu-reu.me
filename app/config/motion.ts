@@ -52,3 +52,15 @@ export const UMBRELLA_OPEN = {
   /** 閉じるときの 1 コマ (出るほうを短く) */
   closeFrameMs: 45,
 } as const;
+
+/** Start メニューの位置に出るログ (sky_shader.log, framerate.log)。単位は ms */
+export const SYSTEM_LOG = {
+  /** 各行が出る間隔 */
+  lineStaggerMs: 140,
+  /** 1 行の文字がほどけて確定するまで */
+  decodeMs: 220,
+  /** 結果の行が出てから残す時間 */
+  holdMs: 900,
+  /** 消える時間 */
+  fadeMs: 200,
+} as const;

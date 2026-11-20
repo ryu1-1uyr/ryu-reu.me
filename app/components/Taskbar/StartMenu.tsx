@@ -8,6 +8,13 @@ import {
   setSkyRenderer,
   useSkyRenderer,
 } from "@/app/components/SkyBackground/skyRenderer";
+import { setFrameCap, useFrameCap, type FrameCap } from "@/app/hooks/frameCap";
+
+const FRAME_CAP_OPTIONS: { value: FrameCap; label: string }[] = [
+  { value: 24, label: "24" },
+  { value: 60, label: "60" },
+  { value: null, label: "∞" },
+];
 
 type Props = {
   open: boolean;
@@ -19,11 +26,12 @@ export default function StartMenu({ open, onClose }: Props) {
   const umbrella = useUmbrella();
   const isMobile = useIsMobile();
   const skyRenderer = useSkyRenderer();
+  const frameCap = useFrameCap();
 
   if (!open) return null;
 
   return (
-    <div className="absolute bottom-full left-0 mb-1 w-56 rounded-lg border-2 border-illustration-stroke bg-elements-background/95 backdrop-blur-md shadow-[4px_4px_0px_0px_rgba(18,22,41,0.6)] overflow-hidden">
+    <div className="absolute bottom-full left-0 mb-1 w-64 rounded-lg border-2 border-illustration-stroke bg-elements-background/95 backdrop-blur-md shadow-[4px_4px_0px_0px_rgba(18,22,41,0.6)] overflow-hidden">
       {/* ヘッダー */}
       <div className="bg-gradient-to-r from-[#eebbc3] to-[#ff69b4] px-3 py-2 border-b-2 border-illustration-stroke">
         <span className="text-xs font-bold text-elements-background tracking-wider">
@@ -115,6 +123,46 @@ export default function StartMenu({ open, onClose }: Props) {
             {skyRenderer === "shader" ? "終了" : "起動"}
           </span>
         </button>
+
+        {/* framerate.exe: canvas アニメーションのコマ数を選ぶ */}
+        <div className="px-3 py-2 text-sm flex items-center gap-2 text-elements-headline">
+          <span className="text-base">🎞️</span>
+          <span className="truncate" id="framerate-label">
+            framerate.exe
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby="framerate-label"
+            className="ml-auto flex gap-0.5"
+          >
+            {FRAME_CAP_OPTIONS.map((opt) => {
+              const selected = frameCap === opt.value;
+              return (
+                <button
+                  key={opt.label}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={opt.value === null ? "上限なし" : `${opt.label} fps`}
+                  onClick={() => {
+                    setFrameCap(opt.value);
+                    onClose();
+                  }}
+                  className={`
+                    min-w-6 rounded border px-1 text-[10px] leading-4 tabular-nums transition-colors
+                    ${
+                      selected
+                        ? "border-elements-button bg-elements-button text-elements-background font-bold"
+                        : "border-illustration-stroke/40 text-elements-paragraph hover:bg-elements-button/20"
+                    }
+                  `}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* フッター */}
