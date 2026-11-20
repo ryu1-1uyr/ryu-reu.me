@@ -130,7 +130,7 @@ function DesktopInner({ contents }: Props) {
         {!isMobile && <WeatherFxOverlay />}
         {!isMobile && <Resident skin={pinkSkin} />}
         {!isMobile && <Resident skin={blueSkin} />}
-        {!isMobile && umbrella?.active && <UmbrellaCursor />}
+        {!isMobile && umbrella && <UmbrellaCursor active={umbrella.active} />}
         <CrtOverlay />
         {process.env.NODE_ENV === "development" && (
           <>
