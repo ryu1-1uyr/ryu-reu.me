@@ -4,6 +4,10 @@ import { useWindowManager } from "@/app/contexts/WindowManager";
 import { useUmbrella } from "@/app/contexts/Umbrella";
 import { WINDOW_REGISTRY } from "@/app/config/windowRegistry";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
+import {
+  setSkyRenderer,
+  useSkyRenderer,
+} from "@/app/components/SkyBackground/skyRenderer";
 
 type Props = {
   open: boolean;
@@ -14,6 +18,7 @@ export default function StartMenu({ open, onClose }: Props) {
   const { windows, openWindow } = useWindowManager();
   const umbrella = useUmbrella();
   const isMobile = useIsMobile();
+  const skyRenderer = useSkyRenderer();
 
   if (!open) return null;
 
@@ -86,6 +91,30 @@ export default function StartMenu({ open, onClose }: Props) {
             </span>
           </button>
         )}
+
+        {/* sky_shader.exe: 空の描画を WebGL (シェーダー) と Canvas 2D で切り替える */}
+        <button
+          type="button"
+          onClick={() => {
+            setSkyRenderer(skyRenderer === "shader" ? "2d" : "shader");
+            onClose();
+          }}
+          className={`
+            w-full text-left px-3 py-2 text-sm flex items-center gap-2
+            hover:bg-elements-button/20 transition-colors
+            ${
+              skyRenderer === "shader"
+                ? "text-elements-paragraph/50"
+                : "text-elements-headline"
+            }
+          `}
+        >
+          <span className="text-base">✨</span>
+          <span className="truncate">sky_shader.exe</span>
+          <span className="ml-auto text-[10px] text-elements-button">
+            {skyRenderer === "shader" ? "終了" : "起動"}
+          </span>
+        </button>
       </div>
 
       {/* フッター */}

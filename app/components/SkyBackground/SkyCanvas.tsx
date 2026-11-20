@@ -12,6 +12,13 @@ import {
 import { emitThunder } from "./thunderBus";
 import { isShadowed, type ShadowRect } from "./rainShadow";
 import { getRegisteredSurfaces } from "@/app/contexts/SurfaceRegistry";
+import { CLOUD_SHADER, RAIN_GLASS } from "@/app/config/skyShader";
+import { cloudPalette, lightSource, moonPosition, sunPosition } from "./skyLight";
+import { createCloudRenderer } from "./gl/cloudRenderer";
+import { createGlassCompositor } from "./gl/glassCompositor";
+import { createRainGlass, tickRainGlass } from "./rainGlass";
+import { getSkyFilter } from "./skyFilter";
+import { getShaderReveal } from "./skyRenderer";
 
 type Props = {
   phase: SkyPhase;
@@ -454,24 +461,9 @@ function drawSun(
   progress: number,
   time: number
 ) {
-  if (phase === "night") return;
-
-  let x: number, y: number, opacity: number;
-
-  if (phase === "sunrise") {
-    x = w * 0.8;
-    y = h * (0.9 - progress * 0.5);
-    opacity = Math.min(1, progress * 2);
-  } else if (phase === "day") {
-    const angle = Math.PI * (0.1 + progress * 0.8);
-    x = w * (0.2 + progress * 0.6);
-    y = h * (0.4 - Math.sin(angle) * 0.25);
-    opacity = 1;
-  } else {
-    x = w * 0.2;
-    y = h * (0.4 + progress * 0.5);
-    opacity = Math.max(0, 1 - progress * 1.5);
-  }
+  const sun = sunPosition(w, h, phase, progress);
+  if (!sun) return;
+  const { x, y, opacity } = sun;
 
   if (opacity <= 0) return;
 
@@ -662,9 +654,7 @@ function drawMoon(
 
   const R = MOON_R;
   const pad = MOON_PAD;
-  const angle = Math.PI * (0.1 + progress * 0.8);
-  const cx = w * (0.2 + progress * 0.6);
-  const cy = h * (0.3 - Math.sin(angle) * 0.15);
+  const { x: cx, y: cy } = moonPosition(w, h, progress);
 
   ctx.save();
 
@@ -830,6 +820,44 @@ function drawClouds(
     ctx.drawImage(c.canvas, cloud.x + c.ox, cloud.y + c.oy);
     ctx.restore();
   }
+}
+
+// 描画方式の切り替えで空を積み替える走査線。目盛りと読み値で進み具合を見せる
+function drawSwapScan(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  y: number,
+  reveal: number,
+) {
+  ctx.save();
+  // 線の下 (まだ積み替えていない側) を照らす発光。上側はガラスのレイヤーに隠れることがあるため
+  const band = ctx.createLinearGradient(0, y, 0, y + 36);
+  band.addColorStop(0, "rgba(184, 193, 236, 0.28)");
+  band.addColorStop(1, "rgba(184, 193, 236, 0)");
+  ctx.fillStyle = band;
+  ctx.fillRect(0, y, w, 36);
+
+  // 芯
+  ctx.shadowColor = "rgba(184, 193, 236, 0.9)";
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+  ctx.fillRect(0, y - 1, w, 2);
+  ctx.shadowBlur = 0;
+
+  // 目盛り (192px ごとに長い目盛り)
+  ctx.fillStyle = "rgba(184, 193, 236, 0.75)";
+  for (let x = 0; x < w; x += 48) {
+    ctx.fillRect(x, y + 2, 1, x % 192 === 0 ? 7 : 3);
+  }
+
+  // 読み値
+  ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "rgba(238, 240, 255, 0.9)";
+  const pct = String(Math.round(reveal * 100)).padStart(3, "0");
+  ctx.fillText(`SKY SHADER ${pct}%`, w - 12, y + 6);
+  ctx.restore();
 }
 
 function drawRain(
@@ -1043,6 +1071,7 @@ export default function SkyCanvas({
   targetFps = 60,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const glassRef = useRef<HTMLCanvasElement>(null);
   const starsRef = useRef<Star[]>([]);
   const rainRef = useRef<Raindrop[]>([]);
   const snowRef = useRef<Snowflake[]>([]);
@@ -1144,6 +1173,16 @@ export default function SkyCanvas({
       initedRef.current = true;
     }
 
+    // WebGL の演出。使えない環境では null のまま 2D 描画だけで続ける
+    const cloudGl = createCloudRenderer(
+      isMobile ? CLOUD_SHADER.resolution.mobile : CLOUD_SHADER.resolution.desktop,
+    );
+    const glass = glassRef.current
+      ? createGlassCompositor(glassRef.current, Math.min(dpr, RAIN_GLASS.pixelRatioMax))
+      : null;
+    const rainGlass = createRainGlass();
+    const maxGlassDrops = isMobile ? RAIN_GLASS.maxDrops.mobile : RAIN_GLASS.maxDrops.desktop;
+
     let animId: number;
     let running = true;
     const startTime = performance.now();
@@ -1161,6 +1200,8 @@ export default function SkyCanvas({
         null,
       );
       return () => {
+        cloudGl?.dispose();
+        glass?.dispose();
         window.removeEventListener("resize", resize);
       };
     }
@@ -1211,6 +1252,9 @@ export default function SkyCanvas({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const viewW = w();
       const viewH = h();
+      // 画面のうちシェーダーで描く割合 (上から)。切り替え中は走査線の位置になる
+      const reveal = cloudGl || glass ? getShaderReveal(now) : 0;
+      const scanY = viewH * reveal;
 
       // グラデーション（darkness 変化時のみ再計算）
       const qDarkness = Math.round(channels.darkness * 20) / 20;
@@ -1247,14 +1291,43 @@ export default function SkyCanvas({
       drawMoon(ctx, viewW, viewH, phase, phaseProgress);
 
       if (channels.cloudCover > 0) {
-        drawClouds(
-          ctx,
-          cloudsRef.current,
-          viewW,
-          dt,
-          channels.cloudCover,
-          effWind,
-        );
+        const cloudImage = reveal > 0 && cloudGl?.render({
+          width: viewW,
+          height: viewH,
+          dtMs: deltaMs,
+          cover: channels.cloudCover,
+          wind: effWind,
+          light: lightSource(viewW, viewH, phase, phaseProgress),
+          palette: cloudPalette(phase, phaseProgress, channels.darkness),
+        });
+        const draw2dClouds = () =>
+          drawClouds(
+            ctx,
+            cloudsRef.current,
+            viewW,
+            dt,
+            channels.cloudCover,
+            effWind,
+          );
+        if (cloudImage && reveal >= 1) {
+          ctx.drawImage(cloudImage, 0, 0, viewW, viewH);
+        } else if (cloudImage) {
+          // 走査線より上はシェーダーの雲、下は 2D の雲
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, viewW, scanY);
+          ctx.clip();
+          ctx.drawImage(cloudImage, 0, 0, viewW, viewH);
+          ctx.restore();
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, scanY, viewW, viewH - scanY);
+          ctx.clip();
+          draw2dClouds();
+          ctx.restore();
+        } else {
+          draw2dClouds();
+        }
       }
 
       if (driftingDrawingsRef.current.length > 0) {
@@ -1327,6 +1400,37 @@ export default function SkyCanvas({
         drawLightning(ctx, viewW, viewH, ls);
       }
 
+      // 画面のガラスに付く雨粒と空の後処理 (描き終えた空をテクスチャとして読む)
+      if (glass && reveal <= 0) {
+        // 2D 描画中は止めておき、戻したときは乾いたガラスから始める
+        rainGlass.drops = [];
+        glass.hide();
+      } else if (glass) {
+        tickRainGlass(
+          rainGlass,
+          deltaMs,
+          channels.rain,
+          RAIN_GLASS.spawnPerSec,
+          viewW,
+          viewH,
+          maxGlassDrops,
+        );
+        glass.render(canvas, {
+          width: viewW,
+          height: viewH,
+          time: time / 1000,
+          rain: channels.rain,
+          drops: rainGlass.drops,
+          filter: getSkyFilter(),
+          clipY: scanY,
+        });
+      }
+
+      // 切り替え中の走査線 (ガラスのテクスチャに映り込まないよう最後に描く)
+      if (reveal > 0 && reveal < 1) {
+        drawSwapScan(ctx, viewW, scanY, reveal);
+      }
+
       animId = requestAnimationFrame(render);
     };
 
@@ -1335,10 +1439,18 @@ export default function SkyCanvas({
     return () => {
       running = false;
       cancelAnimationFrame(animId);
+      cloudGl?.dispose();
+      glass?.dispose();
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("resize", resize);
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="block w-full h-full" />;
+  return (
+    <>
+      <canvas ref={canvasRef} className="block w-full h-full" />
+      {/* 雨の日・フィルター使用時だけ表示する (表示切り替えは glassCompositor が style で行う) */}
+      <canvas ref={glassRef} className="invisible absolute inset-0 w-full h-full" />
+    </>
+  );
 }

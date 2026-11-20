@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useWindowManager, type WindowId } from "@/app/contexts/WindowManager";
 import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
 import StartMenu from "./StartMenu";
+import SkyShaderToast from "./SkyShaderToast";
 import { useIsClient } from "@/app/hooks/useIsClient";
 import { useClickOutside } from "@/app/hooks/useClickOutside";
 
@@ -45,6 +46,7 @@ export default function Taskbar() {
     <footer ref={footerRef} className="boot-taskbar fixed bottom-0 left-0 right-0 z-50 h-10 bg-elements-background/90 backdrop-blur-md border-t-2 border-illustration-stroke flex items-center px-2 gap-1">
       <div ref={menuRef} className="relative">
         <StartMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
+        <SkyShaderToast />
         <button
           type="button"
           onClick={() => {
