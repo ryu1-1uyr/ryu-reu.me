@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useCallback, type DragEvent, type RefObject } from "react";
+import {
+  useState,
+  useCallback,
+  type ClipboardEvent,
+  type DragEvent,
+  type RefObject,
+} from "react";
 import { useRouter } from "next/navigation";
+import { pickPastedImages, preparePastedImage } from "./pastedImage";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -33,7 +40,7 @@ function validateFile(file: File): string | null {
 /**
  * エディタ用の画像アップロードフック。
  * /api/upload への送信、バリデーション、textarea カーソル位置への
- * markdown 挿入、D&D ハンドリング、失敗リトライの管理をまとめる。
+ * markdown 挿入、D&D・ペーストのハンドリング、失敗リトライの管理をまとめる。
  */
 export function useImageUpload({
   textareaRef,
@@ -129,6 +136,26 @@ export function useImageUpload({
     [uploadImage, onError]
   );
 
+  // クリップボードに画像があればアップロードする (X などで「画像をコピー」したもの、スクショ等)。
+  // 画像が無ければ何もせず、通常のテキスト貼り付けに任せる
+  const handlePaste = useCallback(
+    async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+      const images = pickPastedImages(e.clipboardData.files);
+      if (images.length === 0) return;
+
+      // 画像と一緒に入っている HTML (<img src=...>) やテキストは貼らない
+      e.preventDefault();
+      const now = new Date();
+      const files = await Promise.all(
+        images.map((file, i) => preparePastedImage(file, now, i))
+      );
+      for (const file of files) {
+        uploadImage(file);
+      }
+    },
+    [uploadImage]
+  );
+
   const handleDragOver = useCallback((e: DragEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     setIsDragOver(true);
@@ -149,6 +176,7 @@ export function useImageUpload({
     uploadImage,
     removeFailedUpload,
     handleDrop,
+    handlePaste,
     handleDragOver,
     handleDragLeave,
   };
