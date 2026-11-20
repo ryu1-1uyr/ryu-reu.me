@@ -16,6 +16,7 @@ import Resident from "@/app/components/Resident/Resident";
 import { pinkSkin, blueSkin } from "@/app/components/Resident/skins/placeholderSkin";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
 import CrtOverlay, { CrtTuner } from "@/app/components/CrtOverlay";
+import { SkyDitherTuner } from "@/app/components/SkyBackground";
 import {
   WINDOW_REGISTRY,
   type WindowId,
@@ -131,7 +132,12 @@ function DesktopInner({ contents }: Props) {
         {!isMobile && <Resident skin={blueSkin} />}
         {!isMobile && umbrella?.active && <UmbrellaCursor />}
         <CrtOverlay />
-        {process.env.NODE_ENV === "development" && <CrtTuner />}
+        {process.env.NODE_ENV === "development" && (
+          <>
+            <CrtTuner />
+            <SkyDitherTuner />
+          </>
+        )}
       </WeatherFxBusProvider>
     </SurfaceRegistryProvider>
   );
