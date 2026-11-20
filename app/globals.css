@@ -249,3 +249,122 @@
     opacity: 0;
   }
 }
+
+/* === CRT (ブラウン管) エフェクト ===
+   トップのデスクトップ全体に膜を重ねる (CrtOverlay)。値は dev の CrtTuner で調整し、ここへ焼き込む。
+   DOM の上に重ねるので文字にも走査線がかかる。可読性はまず --crt-scan-opacity と
+   --crt-aberration で決まる。 */
+:root {
+  --crt-scan-opacity: 0.1;
+  --crt-scan-pitch: 3px;
+  --crt-mask-opacity: 0.02;
+  --crt-vignette: 0.4;
+  --crt-roll-opacity: 0.05;
+  --crt-flicker: 0.03;
+  --crt-aberration: 0.8px;
+  --crt-glow: 0.2;
+}
+
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+  animation: crt-flicker 120ms steps(2) infinite;
+}
+
+.crt-overlay > * {
+  position: absolute;
+  inset: 0;
+}
+
+/* 走査線: 暗い線と明るい線を交互に。線の太さは pitch の 1/3 */
+.crt-scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(10, 12, 24, var(--crt-scan-opacity)) 0,
+    rgba(10, 12, 24, var(--crt-scan-opacity)) calc(var(--crt-scan-pitch) / 3),
+    transparent calc(var(--crt-scan-pitch) / 3),
+    transparent var(--crt-scan-pitch)
+  );
+}
+
+/* シャドウマスク (アパーチャグリル): RGB の縦縞 */
+.crt-mask {
+  opacity: var(--crt-mask-opacity);
+  mix-blend-mode: multiply;
+  background: repeating-linear-gradient(
+    to right,
+    #ff3c5a 0,
+    #ff3c5a 1px,
+    #3cff8c 1px,
+    #3cff8c 2px,
+    #3c8cff 2px,
+    #3c8cff 3px
+  );
+}
+
+/* 周辺減光: ブラウン管のガラスの丸みを暗示する */
+.crt-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(6, 8, 18, var(--crt-vignette)) 100%
+  );
+}
+
+/* リフレッシュの帯: 明るい帯がゆっくり上から下へ流れる */
+.crt-roll {
+  overflow: hidden;
+}
+
+.crt-roll::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18vh;
+  top: -18vh;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 254, var(--crt-roll-opacity)),
+    transparent
+  );
+  animation: crt-roll 7s linear infinite;
+}
+
+@keyframes crt-roll {
+  to {
+    transform: translateY(118vh);
+  }
+}
+
+@keyframes crt-flicker {
+  50% {
+    opacity: calc(1 - var(--crt-flicker));
+  }
+}
+
+/* 文字の色ずれと蛍光体の発光 (デスクトップのウィンドウ内) */
+.crt-screen .window-frame {
+  text-shadow:
+    calc(var(--crt-aberration) * -1) 0 rgba(255, 60, 90, 0.45),
+    var(--crt-aberration) 0 rgba(60, 200, 255, 0.45),
+    0 0 6px rgba(238, 187, 195, var(--crt-glow));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crt-overlay,
+  .crt-roll::before {
+    animation: none;
+  }
+}
+
+/* CrtTuner の「OFF で比較」 */
+.crt-off .crt-overlay {
+  display: none;
+}
+.crt-off .crt-screen .window-frame {
+  text-shadow: none;
+}

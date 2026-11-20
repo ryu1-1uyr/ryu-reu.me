@@ -15,6 +15,7 @@ import WeatherFxOverlay from "@/app/components/WeatherFxOverlay/WeatherFxOverlay
 import Resident from "@/app/components/Resident/Resident";
 import { pinkSkin, blueSkin } from "@/app/components/Resident/skins/placeholderSkin";
 import { useIsMobile } from "@/app/hooks/useIsMobile";
+import CrtOverlay, { CrtTuner } from "@/app/components/CrtOverlay";
 import {
   WINDOW_REGISTRY,
   type WindowId,
@@ -82,8 +83,8 @@ function DesktopInner({ contents }: Props) {
         <main
           className={
             isMobile
-              ? "boot-stage flex flex-col items-center gap-6 p-6 pb-14"
-              : "boot-stage h-[calc(100dvh-2.5rem)] relative overflow-hidden"
+              ? "boot-stage crt-screen flex flex-col items-center gap-6 p-6 pb-14"
+              : "boot-stage crt-screen h-[calc(100dvh-2.5rem)] relative overflow-hidden"
           }
         >
           {WINDOW_REGISTRY.map((def) => {
@@ -129,6 +130,8 @@ function DesktopInner({ contents }: Props) {
         {!isMobile && <Resident skin={pinkSkin} />}
         {!isMobile && <Resident skin={blueSkin} />}
         {!isMobile && umbrella?.active && <UmbrellaCursor />}
+        <CrtOverlay />
+        {process.env.NODE_ENV === "development" && <CrtTuner />}
       </WeatherFxBusProvider>
     </SurfaceRegistryProvider>
   );
