@@ -5,6 +5,7 @@ import { useWindowManager, type WindowId } from "@/app/contexts/WindowManager";
 import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
 import StartMenu from "./StartMenu";
 import SkyShaderToast from "./SkyShaderToast";
+import FrameRateToast from "./FrameRateToast";
 import { useIsClient } from "@/app/hooks/useIsClient";
 import { useClickOutside } from "@/app/hooks/useClickOutside";
 
@@ -47,6 +48,7 @@ export default function Taskbar() {
       <div ref={menuRef} className="relative">
         <StartMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
         <SkyShaderToast />
+        <FrameRateToast />
         <button
           type="button"
           onClick={() => {

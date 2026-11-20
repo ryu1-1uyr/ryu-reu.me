@@ -36,16 +36,8 @@ export const SKY_DITHER = {
   spread: 1,
 };
 
-/** 描画方式を切り替えるときの演出 (走査線とログのトースト) */
+/** 描画方式を切り替えるときの走査線 (ログの時間は config/motion.ts の SYSTEM_LOG) */
 export const SKY_SWAP = {
   /** 走査線が画面の端から端まで進む時間 (ms)。途中で反転したときは残りの距離に比例して短くなる */
   sweepMs: 900,
-  /** トーストの各行が出る間隔 (ms) */
-  lineStaggerMs: 140,
-  /** 1 行の文字がほどけて確定するまで (ms) */
-  decodeMs: 220,
-  /** 走査が終わってからトーストを残す時間 (ms) */
-  holdMs: 900,
-  /** トーストが消える時間 (ms) */
-  fadeMs: 200,
 } as const;

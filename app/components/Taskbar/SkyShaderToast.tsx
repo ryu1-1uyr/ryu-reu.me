@@ -1,14 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MOTION_DURATION, MOTION_EASE } from "@/app/config/motion";
-import { SKY_SWAP } from "@/app/config/skyShader";
+import { SYSTEM_LOG } from "@/app/config/motion";
 import {
   getShaderReveal,
   useSkyRenderer,
   useSweepId,
   type SkyRenderer,
 } from "@/app/components/SkyBackground/skyRenderer";
+import {
+  LogLine,
+  LogShell,
+  decode,
+  decodeProgress,
+  lineAppearAt,
+  playLogEnter,
+  playLogExit,
+  prefersReducedMotion,
+  type LogTone,
+} from "./systemLog";
 
 /**
  * sky_shader.exe の起動・終了ログ。Start メニューがあった位置に出し、
@@ -22,8 +32,6 @@ export default function SkyShaderToast() {
   return <SwapLog key={sweepId} mode={renderer} />;
 }
 
-const GLYPHS = "▓▒░#/\\<>01";
-
 let webgl2Cache: boolean | null = null;
 function hasWebGL2(): boolean {
   if (webgl2Cache === null) {
@@ -34,16 +42,6 @@ function hasWebGL2(): boolean {
   return webgl2Cache;
 }
 
-/** 左から確定し、残りはランダムな記号で埋める (空白は保つ) */
-function decode(text: string, p: number): string {
-  const fixed = Math.floor(text.length * p);
-  let out = text.slice(0, fixed);
-  for (let i = fixed; i < text.length; i++) {
-    out += text[i] === " " ? " " : GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-  }
-  return out;
-}
-
 function progressBar(reveal: number): string {
   const cells = 10;
   const filled = Math.round(reveal * cells);
@@ -51,7 +49,7 @@ function progressBar(reveal: number): string {
   return `SCAN [${"■".repeat(filled)}${"□".repeat(cells - filled)}] ${pct}%`;
 }
 
-type Line = { text: string; tone: "ink" | "ok" | "warn" };
+type Line = { text: string; tone: LogTone };
 
 function buildLines(mode: SkyRenderer, webgl: boolean): { head: Line[]; result: Line } {
   if (mode === "shader") {
@@ -76,12 +74,6 @@ function buildLines(mode: SkyRenderer, webgl: boolean): { head: Line[]; result: 
   };
 }
 
-const TONE_CLASS: Record<Line["tone"], string> = {
-  ink: "text-elements-headline",
-  ok: "text-[#7fdbca]",
-  warn: "text-[#eebbc3]",
-};
-
 function SwapLog({ mode }: { mode: SkyRenderer }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -97,19 +89,11 @@ function SwapLog({ mode }: { mode: SkyRenderer }) {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const enter = reduce ? MOTION_DURATION.reduced : 0.16;
-    root.animate(
-      [
-        { opacity: 0, transform: reduce ? "none" : "scaleY(0.92)" },
-        { opacity: 1, transform: "none" },
-      ],
-      { duration: enter * 1000, easing: `cubic-bezier(${MOTION_EASE.enter.join(",")})` },
-    );
+    const reduce = prefersReducedMotion();
+    playLogEnter(root, reduce);
 
     const start = performance.now();
     let resultAt: number | null = null;
-    let fading = false;
     let raf = 0;
 
     // 経過時間と走査の進み具合だけから、各行の表示を決める
@@ -122,7 +106,7 @@ function SwapLog({ mode }: { mode: SkyRenderer }) {
       rows.forEach((row, i) => {
         const el = lineRefs.current[i];
         if (!el) return;
-        const appearAt = reduce ? 0 : i * SKY_SWAP.lineStaggerMs;
+        const appearAt = lineAppearAt(i, reduce);
         let visible = t >= appearAt;
         if (i === resultRow) {
           if (swept && resultAt === null && t >= appearAt) resultAt = t;
@@ -135,18 +119,11 @@ function SwapLog({ mode }: { mode: SkyRenderer }) {
           return;
         }
         const since = i === resultRow ? t - (resultAt ?? t) : t - appearAt;
-        const p = reduce ? 1 : Math.min(1, since / SKY_SWAP.decodeMs);
-        el.textContent = decode(row.text, p);
+        el.textContent = decode(row.text, decodeProgress(since, reduce));
       });
 
-      if (resultAt !== null && !fading && t - resultAt >= SKY_SWAP.holdMs) {
-        fading = true;
-        const fade = root.animate([{ opacity: 1 }, { opacity: 0 }], {
-          duration: SKY_SWAP.fadeMs,
-          easing: `cubic-bezier(${MOTION_EASE.exit.join(",")})`,
-          fill: "forwards",
-        });
-        fade.onfinish = () => setDone(true);
+      if (resultAt !== null && t - resultAt >= SYSTEM_LOG.holdMs) {
+        playLogExit(root, () => setDone(true));
         return;
       }
       raf = requestAnimationFrame(frame);
@@ -160,31 +137,18 @@ function SwapLog({ mode }: { mode: SkyRenderer }) {
   if (done) return null;
 
   return (
-    <div
-      ref={rootRef}
-      role="status"
-      className="pointer-events-none absolute bottom-full left-0 mb-1 w-60 origin-bottom-left rounded-lg border-2 border-illustration-stroke bg-elements-background/95 backdrop-blur-md shadow-[4px_4px_0px_0px_rgba(18,22,41,0.6)] overflow-hidden"
-    >
-      <div className="bg-gradient-to-r from-[#7fdbca] to-[#b8c1ec] px-3 py-1 border-b-2 border-illustration-stroke">
-        <span className="text-[10px] font-bold text-elements-background tracking-wider">
-          sky_shader.log
-        </span>
-      </div>
-      <p className="sr-only">{result.text}</p>
-      <div aria-hidden="true" className="px-3 py-2 font-mono text-[11px] leading-5">
-        {rows.map((row, i) => (
-          <span
-            key={i}
-            ref={(el) => {
-              lineRefs.current[i] = el;
-            }}
-            className={`block whitespace-pre ${TONE_CLASS[row.tone]}`}
-            style={{ visibility: "hidden" }}
-          >
-            {row.text}
-          </span>
-        ))}
-      </div>
-    </div>
+    <LogShell rootRef={rootRef} title="sky_shader.log" summary={result.text}>
+      {rows.map((row, i) => (
+        <LogLine
+          key={i}
+          tone={row.tone}
+          lineRef={(el) => {
+            lineRefs.current[i] = el;
+          }}
+        >
+          {row.text}
+        </LogLine>
+      ))}
+    </LogShell>
   );
 }

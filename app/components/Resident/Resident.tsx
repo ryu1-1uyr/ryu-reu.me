@@ -25,6 +25,7 @@ import { recordVisit, recordInteraction } from "./residentMemory";
 import { computePose } from "./residentPose";
 import { pinkSkin } from "./skins/placeholderSkin";
 import type { ResidentSkin } from "./skins/types";
+import { createFrameGate } from "@/app/hooks/frameCap";
 
 /** ドラッグ開始とみなすポインタ移動距離 (px)。未満なら hop 扱い */
 const DRAG_THRESHOLD = 5;
@@ -105,12 +106,15 @@ export default function Resident({ skin = pinkSkin }: { skin?: ResidentSkin }) {
 
     let rafId = 0;
     let lastTime = 0;
+    const frameGate = createFrameGate();
     // 積雪の踏み散らし: 前回 stomp した位置と直前の状態名
     let lastStompX = Infinity;
     let prevName = state.name;
 
     function loop(time: number) {
       rafId = requestAnimationFrame(loop);
+      // コマ数の上限があるときは間引く (delta は通ったフレーム間で測る)
+      if (!frameGate(time)) return;
       const delta = Math.min(lastTime ? time - lastTime : 16.67, 100);
       lastTime = time;
 

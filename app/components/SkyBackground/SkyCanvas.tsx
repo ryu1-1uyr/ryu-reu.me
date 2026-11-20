@@ -18,6 +18,7 @@ import { createCloudRenderer } from "./gl/cloudRenderer";
 import { createGlassCompositor } from "./gl/glassCompositor";
 import { createRainGlass, tickRainGlass } from "./rainGlass";
 import { getSkyFilter } from "./skyFilter";
+import { createFrameGate, getFrameCap } from "@/app/hooks/frameCap";
 import { getShaderReveal } from "./skyRenderer";
 
 type Props = {
@@ -1221,24 +1222,23 @@ export default function SkyCanvas({
     let gradMemoKey = "";
     let gradMemoColors: [string, string, string] = ["#000", "#000", "#000"];
     let gradCache: { h: number; grad: CanvasGradient } | null = null;
-    let lastRenderTime = startTime;
+    // ページごとの上限 (props) と、全体の上限 (お試しのコマ数設定) の低いほうで間引く
+    const frameGate = createFrameGate(() => {
+      const own = propsRef.current.targetFps < 60 ? propsRef.current.targetFps : null;
+      const global = getFrameCap();
+      return own && global ? Math.min(own, global) : (own ?? global);
+    });
 
     const render = () => {
       if (!running) return;
 
       const now = performance.now();
-      const {
-        phase,
-        phaseProgress,
-        targetFps: fps,
-      } = propsRef.current;
-      const frameInterval = fps < 60 ? 1000 / fps : 0;
+      const { phase, phaseProgress } = propsRef.current;
 
-      if (frameInterval > 0 && now - lastRenderTime < frameInterval) {
+      if (!frameGate(now)) {
         animId = requestAnimationFrame(render);
         return;
       }
-      lastRenderTime = now;
       const deltaMs = Math.min(now - prevTime, 100);
       const dt = deltaMs / (1000 / 60);
       prevTime = now;
