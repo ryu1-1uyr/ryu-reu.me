@@ -68,7 +68,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJ..."
 
 ```bash
 npx prisma migrate dev
+npx prisma generate
 ```
+
+Prisma 7 以降、`migrate dev` はクライアントを生成しないため `prisma generate` を明示的に実行する（生成先は `app/generated/prisma`、git 管理外）。
 
 ### 4. 開発サーバー
 

@@ -8,8 +8,9 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
+  // CLI (migrate など) は pooler を経由せず直接接続する。
+  // アプリ実行時の接続は lib/prisma.ts の driver adapter が DATABASE_URL で行う。
   datasource: {
-    url: env("DATABASE_URL"),
-    directUrl: env("DIRECT_URL"),
+    url: env("DIRECT_URL"),
   },
 });
