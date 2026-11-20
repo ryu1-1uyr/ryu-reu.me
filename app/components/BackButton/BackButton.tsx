@@ -1,25 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { usePageTransition } from "@/app/components/PageTransition";
+import { useBackNavigation } from "@/app/components/PageTransition";
 
 export default function BackButton() {
-  const router = useRouter();
-  const { startExit } = usePageTransition();
-
-  const handleBack = async () => {
-    await startExit();
-
-    const hasSameOriginHistory =
-      window.history.length > 1 &&
-      document.referrer.startsWith(window.location.origin);
-
-    if (hasSameOriginHistory) {
-      router.back();
-    } else {
-      router.push("/");
-    }
-  };
+  const handleBack = useBackNavigation();
 
   return (
     <button

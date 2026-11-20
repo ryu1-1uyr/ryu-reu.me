@@ -12,7 +12,6 @@ import {
   getEffectiveWind,
   type WeatherEngineState,
 } from "@/app/components/SkyBackground/weatherEngine";
-import { attachGustTracker } from "@/app/components/SkyBackground/gustTracker";
 import {
   createRainFx,
   tickRainFx,
@@ -120,11 +119,9 @@ export default function WeatherFxOverlay() {
     }
 
     rafId = requestAnimationFrame(loop);
-    const detachGust = attachGustTracker(engine);
 
     return () => {
       cancelAnimationFrame(rafId);
-      detachGust();
       window.removeEventListener("resize", resize);
       bus?.setSnowFx(null);
     };

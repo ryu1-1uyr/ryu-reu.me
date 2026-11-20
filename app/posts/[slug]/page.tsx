@@ -76,7 +76,7 @@ export default async function PostPage({ params }: Props) {
   };
 
   return (
-    <PageTransition>
+    <PageTransition windowTitle={`${post.title}.md`}>
       {/* JSON-LD 構造化データ (BlogPosting) */}
       <script
         type="application/ld+json"

@@ -10,6 +10,7 @@ import "./globals.css";
 import { WeatherOverrideProvider } from "@/app/contexts/WeatherOverride";
 import { SkyDrawingsProvider } from "@/app/contexts/SkyDrawings";
 import { SkyBackgroundWrapper } from "@/app/components/SkyBackground";
+import NavOriginTracker from "@/app/components/NavOriginTracker";
 
 // preload: false にして 30+ の woff2 自動 preload を止める。
 // fallback フォントで初期描画 → 必要な subset だけ後でロードされる。
@@ -67,6 +68,7 @@ export default function RootLayout({
       <body
         className={`${yuseiMagic.className} flex flex-col min-h-screen bg-elements-background`}
       >
+        <NavOriginTracker />
         <WeatherOverrideProvider>
           <SkyDrawingsProvider>
             <SkyBackgroundWrapper />

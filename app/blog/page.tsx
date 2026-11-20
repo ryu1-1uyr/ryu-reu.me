@@ -97,7 +97,7 @@ export default async function BlogPage({
   };
 
   return (
-    <PageTransition>
+    <PageTransition windowTitle="blog_index.log" windowColor="teal">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}

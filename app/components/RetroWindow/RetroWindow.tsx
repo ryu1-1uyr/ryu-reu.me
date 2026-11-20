@@ -2,8 +2,9 @@
 
 import { useRef, useCallback, useState, useEffect, type PointerEvent } from "react";
 import { useSurfaceRegistry } from "@/app/contexts/SurfaceRegistry";
-
-type TitleBarColor = "pink" | "blue" | "teal" | "orange";
+import WindowTitleBar, { type TitleBarColor } from "./WindowTitleBar";
+import { playZoomRects, taskbarStartRect } from "./zoomRects";
+import { MOTION_DURATION, MOTION_EASE, WINDOW_CLOSE } from "@/app/config/motion";
 
 type Props = {
   title: string;
@@ -18,17 +19,19 @@ type Props = {
   onFocus?: () => void;
   /** 指定すると SurfaceRegistry に登録し天候エフェクトの干渉対象になる */
   surfaceId?: string;
+  /**
+   * 出現アニメーション。数値なら起動演出 (値はずらしの段数)、
+   * "open" なら単体で開くときの短い出現
+   */
+  appear?: number | "open";
+  /**
+   * appear="open" のとき、開いた操作の位置 (ビューポート座標)。
+   * 指定するとそこからズーム矩形が飛び、起動演出と同じ順で組み上がる
+   */
+  launchFrom?: { x: number; y: number };
 };
 
-const BAR_COLORS: Record<
-  TitleBarColor,
-  { light: string; dark: string; deep: string }
-> = {
-  pink: { light: "#eebbc3", dark: "#ff69b4", deep: "#fb379f" },
-  blue: { light: "#232946", dark: "#4a6fa5", deep: "#1e2a78" },
-  teal: { light: "#2a9d8f", dark: "#40c9a2", deep: "#1e776f" },
-  orange: { light: "#f2c57c", dark: "#e09f3e", deep: "#d17c2a" },
-};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function RetroWindow({
   title,
@@ -41,9 +44,13 @@ export default function RetroWindow({
   onClose,
   onFocus,
   surfaceId,
+  appear,
+  launchFrom,
 }: Props) {
   const registry = useSurfaceRegistry();
   const rootRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const closingRef = useRef(false);
 
   useEffect(() => {
     if (!surfaceId || !registry || !rootRef.current) return;
@@ -91,77 +98,127 @@ export default function RetroWindow({
     dragRef.current = null;
   }, []);
 
-  const style: React.CSSProperties = draggable
-    ? {
-        position: "absolute",
-        left: pos.x,
-        top: pos.y,
-        zIndex: zIndex ?? "auto",
-      }
-    : {};
+  // 閉じる (最小化): 本体をタイトルバーまで畳み、帯をタスクバーの Start へ飛ばしてから閉じる
+  const handleClose = async () => {
+    if (!onClose) return;
+    const root = rootRef.current;
+    const frame = frameRef.current;
+    if (!root || !frame || closingRef.current) return;
+    closingRef.current = true;
 
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      await root.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: MOTION_DURATION.reduced * 1000,
+        fill: "forwards",
+      }).finished;
+      onClose();
+      return;
+    }
+
+    const bar = frame.querySelector<HTMLElement>(".window-titlebar");
+    const barH = bar?.offsetHeight ?? 32;
+    const fold = frame.animate(
+      [
+        { clipPath: "inset(0px 0px 0px 0px round 0.5rem)" },
+        { clipPath: `inset(0px 0px calc(100% - ${barH}px) 0px round 0.5rem)` },
+      ],
+      {
+        duration: WINDOW_CLOSE.fold * 1000,
+        easing: `cubic-bezier(${MOTION_EASE.exit.join(",")})`,
+        fill: "forwards",
+      }
+    );
+    await sleep((WINDOW_CLOSE.fold - WINDOW_CLOSE.zoomOverlap) * 1000);
+    if (bar) {
+      const r = bar.getBoundingClientRect();
+      playZoomRects(
+        { x: r.x, y: r.y, width: r.width, height: r.height },
+        taskbarStartRect()
+      );
+    }
+    await fold.finished;
+    root.style.visibility = "hidden";
+    onClose();
+  };
+
+  // 起動演出、またはスタートメニューから開いたときは「組み上がる」演出にする
+  const assemble = typeof appear === "number" || (appear === "open" && !!launchFrom);
+
+  const style: React.CSSProperties = {
+    ...(draggable
+      ? {
+          position: "absolute",
+          left: pos.x,
+          top: pos.y,
+          zIndex: zIndex ?? "auto",
+        }
+      : {}),
+    ...(typeof appear === "number"
+      ? ({
+          "--boot-index": String(appear),
+          // ズーム矩形の出どころ = タスクバーの Start ボタン。
+          // 親 (main) の高さは 100dvh - 2.5rem なので、Start の中心は 100dvh - 1.25rem
+          ...(draggable
+            ? {
+                "--zoom-from": `translate(calc(40px - ${pos.x}px), calc(100dvh - 1.25rem - ${pos.y}px)) scale(0.06)`,
+              }
+            : {}),
+        } as React.CSSProperties)
+      : {}),
+    ...(appear === "open" && launchFrom
+      ? ({
+          // 待ち時間なしで、押したメニュー項目から飛ばす
+          // (モバイルは配置が流れで決まるので出どころは CSS の既定 = 足元)
+          "--boot-t": "0ms",
+          ...(draggable
+            ? {
+                "--zoom-from": `translate(${launchFrom.x - pos.x}px, ${launchFrom.y - pos.y}px) scale(0.1)`,
+              }
+            : {}),
+        } as React.CSSProperties)
+      : {}),
+  };
+
+  const appearClass =
+    appear === undefined
+      ? ""
+      : assemble
+        ? "window-appear-boot"
+        : "window-appear-open";
+
+  // 外枠 = 位置と演出 (ズーム矩形の残像は ::before / ::after)。
+  // 中身 = 見た目。overflow-hidden が残像を切らないよう 2 層に分けている
   return (
     <div
       ref={rootRef}
-      className={`
-        rounded-lg
-        border-2 border-illustration-stroke
-        overflow-hidden
-        shadow-[4px_4px_0px_0px_rgba(18,22,41,0.6)]
-        w-fit
-        ${className}
-      `}
+      className={`relative w-fit ${appearClass} ${className}`}
       style={style}
       onPointerDown={() => onFocus?.()}
     >
-      {/* タイトルバー */}
       <div
-        className={`
-          flex items-center justify-between
-          px-3 py-1.5
-          border-b-2 border-illustration-stroke
-          ${draggable ? "cursor-grab active:cursor-grabbing select-none" : ""}
-        `}
-        style={{
-          background: `linear-gradient(to right, ${BAR_COLORS[color].dark}, ${BAR_COLORS[color].light})`,
-        }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        ref={frameRef}
+        className="
+          window-frame
+          rounded-lg
+          border-2 border-illustration-stroke
+          overflow-hidden
+          shadow-[4px_4px_0px_0px_rgba(18,22,41,0.6)]
+        "
       >
-        <span className="text-xs font-bold text-elements-background tracking-wider truncate">
-          {title}
-        </span>
-        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-          <span className="w-3 h-3 rounded-sm border border-elements-background/40 bg-elements-background/20 flex items-center justify-center text-[8px] leading-none text-elements-background/70">
-            ─
-          </span>
-          <span className="w-3 h-3 rounded-sm border border-elements-background/40 bg-elements-background/20 flex items-center justify-center text-[8px] leading-none text-elements-background/70">
-            □
-          </span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose?.();
-            }}
-            className="w-3 h-3 rounded-sm border border-elements-background/40 flex items-center justify-center text-[8px] leading-none text-elements-background transition-colors"
-            style={{ backgroundColor: BAR_COLORS[color].dark }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = BAR_COLORS[color].deep;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = BAR_COLORS[color].dark;
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      </div>
+        <WindowTitleBar
+          title={title}
+          color={color}
+          onClose={handleClose}
+          className={draggable ? "cursor-grab active:cursor-grabbing select-none" : ""}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        />
 
-      {/* コンテンツ */}
-      <div className="bg-elements-background/90 backdrop-blur-sm">
-        {children}
+        {/* コンテンツ */}
+        <div className="window-body bg-elements-background/90 backdrop-blur-sm">
+          {children}
+        </div>
       </div>
     </div>
   );
