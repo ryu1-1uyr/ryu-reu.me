@@ -34,8 +34,10 @@ export default function StartMenu({ open, onClose }: Props) {
             <button
               key={def.id}
               type="button"
-              onClick={() => {
-                openWindow(def.id);
+              onClick={(e) => {
+                // 押した項目を開く演出の出どころにする
+                const r = e.currentTarget.getBoundingClientRect();
+                openWindow(def.id, { x: r.x, y: r.y });
                 onClose();
               }}
               className={`

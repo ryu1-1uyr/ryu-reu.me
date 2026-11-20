@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   WindowManagerProvider,
   useWindowManager,
@@ -20,6 +20,44 @@ import {
   type WindowId,
 } from "@/app/config/windowRegistry";
 
+// 起動シーケンスを構成する CSS アニメーション名 (globals.css)
+const BOOT_ANIMATIONS = new Set([
+  "boot-camera",
+  "boot-taskbar",
+  "boot-power",
+  "zoom-rect",
+  "window-unfold",
+  "title-type",
+  "body-rise",
+]);
+
+/** 起動シーケンスの最大の長さ。これを過ぎたらスキップの待ち受けをやめる */
+const BOOT_SKIP_WINDOW_MS = 3000;
+
+/** 起動中にクリック・キー・スクロールが来たら、演出を最後まで飛ばして操作を優先する */
+function useBootSkip() {
+  useEffect(() => {
+    const skip = () => {
+      for (const a of document.getAnimations()) {
+        if (a instanceof CSSAnimation && BOOT_ANIMATIONS.has(a.animationName)) {
+          a.finish();
+        }
+      }
+      stop();
+    };
+    const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    const stop = () => {
+      events.forEach((e) => window.removeEventListener(e, skip, true));
+      clearTimeout(timer);
+    };
+    events.forEach((e) =>
+      window.addEventListener(e, skip, { capture: true, passive: true })
+    );
+    const timer = setTimeout(stop, BOOT_SKIP_WINDOW_MS);
+    return stop;
+  }, []);
+}
+
 type Props = {
   /** 各ウィンドウの中身を WindowId → ReactNode で渡す */
   contents: Partial<Record<WindowId, ReactNode>>;
@@ -29,6 +67,14 @@ function DesktopInner({ contents }: Props) {
   const { windows, closeWindow, focusWindow } = useWindowManager();
   const isMobile = useIsMobile();
   const umbrella = useUmbrella();
+  // 起動演出の対象 = Desktop の表示時点で開いていたウィンドウ。
+  // トップへ来るたびに Desktop が作り直されるので毎回再生される。
+  // 後からタスクバーで開いたもの・一度閉じたものは短い出現だけにする
+  const [bootIds, setBootIds] = useState(
+    () => new Set(WINDOW_REGISTRY.filter((d) => windows[d.id].open).map((d) => d.id))
+  );
+  let bootIndex = 0;
+  useBootSkip();
 
   return (
     <SurfaceRegistryProvider>
@@ -36,8 +82,8 @@ function DesktopInner({ contents }: Props) {
         <main
           className={
             isMobile
-              ? "flex flex-col items-center gap-6 p-6 pb-14"
-              : "h-[calc(100dvh-2.5rem)] relative overflow-hidden"
+              ? "boot-stage flex flex-col items-center gap-6 p-6 pb-14"
+              : "boot-stage h-[calc(100dvh-2.5rem)] relative overflow-hidden"
           }
         >
           {WINDOW_REGISTRY.map((def) => {
@@ -58,9 +104,20 @@ function DesktopInner({ contents }: Props) {
                 draggable={!isMobile}
                 initialPosition={!isMobile ? def.initialPosition : undefined}
                 zIndex={!isMobile ? windows[def.id].zIndex : undefined}
-                onClose={() => closeWindow(def.id)}
+                onClose={() => {
+                  closeWindow(def.id);
+                  if (bootIds.has(def.id)) {
+                    setBootIds((prev) => {
+                      const next = new Set(prev);
+                      next.delete(def.id);
+                      return next;
+                    });
+                  }
+                }}
                 onFocus={() => focusWindow(def.id)}
                 surfaceId={!isMobile ? def.id : undefined}
+                appear={bootIds.has(def.id) ? bootIndex++ : "open"}
+                launchFrom={windows[def.id].launchFrom}
               >
                 {content}
               </RetroWindow>

@@ -12,12 +12,14 @@ export type { WindowId };
 type WindowState = {
   open: boolean;
   zIndex: number;
+  /** 開いた操作の位置 (スタートメニューの項目など、ビューポート座標)。開く演出の出どころ */
+  launchFrom?: { x: number; y: number };
 };
 
 type WindowManagerContextType = {
   windows: Record<WindowId, WindowState>;
   closeWindow: (id: WindowId) => void;
-  openWindow: (id: WindowId) => void;
+  openWindow: (id: WindowId, launchFrom?: { x: number; y: number }) => void;
   focusWindow: (id: WindowId) => void;
 };
 
@@ -42,12 +44,12 @@ export function WindowManagerProvider({
   }, []);
 
   const openWindow = useCallback(
-    (id: WindowId) => {
+    (id: WindowId, launchFrom?: { x: number; y: number }) => {
       const newZ = topZ + 1;
       setTopZ(newZ);
       setWindows((prev) => ({
         ...prev,
-        [id]: { open: true, zIndex: newZ },
+        [id]: { open: true, zIndex: newZ, launchFrom },
       }));
     },
     [topZ]

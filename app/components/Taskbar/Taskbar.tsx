@@ -42,7 +42,7 @@ export default function Taskbar() {
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   return (
-    <footer ref={footerRef} className="fixed bottom-0 left-0 right-0 z-50 h-10 bg-elements-background/90 backdrop-blur-md border-t-2 border-illustration-stroke flex items-center px-2 gap-1">
+    <footer ref={footerRef} className="boot-taskbar fixed bottom-0 left-0 right-0 z-50 h-10 bg-elements-background/90 backdrop-blur-md border-t-2 border-illustration-stroke flex items-center px-2 gap-1">
       <div ref={menuRef} className="relative">
         <StartMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
         <button
@@ -52,6 +52,7 @@ export default function Taskbar() {
             setMenuOpen((v) => !v);
           }}
           className={`
+            boot-start
             h-7 px-3 rounded text-xs font-bold flex items-center gap-1.5
             border border-illustration-stroke
             transition-colors

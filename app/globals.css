@@ -53,3 +53,199 @@
 .umbrella-mode * {
   cursor: none !important;
 }
+
+/* === モーション ===
+   値の根拠: motion-design スキル (timing.md / web-motion-graphics.md)。
+   JS 側の対応値は app/config/motion.ts */
+:root {
+  --motion-duration-enter: 250ms;
+  --motion-ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* 矩形が飛ぶ動き: 加速して減速する (映像の move) */
+  --motion-ease-travel: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-ease-camera: cubic-bezier(0.16, 1, 0.3, 1);
+  /* 起動シーケンス: 1 枚目の開始時刻と、ウィンドウごとのずらし */
+  --boot-start: 400ms;
+  --boot-gap: 220ms;
+}
+
+/* --- 起動シーケンス (トップを開くたびに再生。Desktop のマウント時) ---
+   カメラが寄る → タスクバーが床として入る → Start が光る (電源 ON) →
+   Start からウィンドウへズーム矩形の残像が飛ぶ → タイトルバーが伸びて名前が打たれる →
+   本体が下へ展開 → 中身が出る。
+   どの段も fill-mode は backwards/both にし、終了後に transform や clip-path を残さない。
+   途中のクリック・キー入力で Desktop が全アニメーションを finish() してスキップする。 */
+
+.boot-stage {
+  animation: boot-camera 1600ms var(--motion-ease-camera) backwards;
+}
+
+@keyframes boot-camera {
+  from {
+    transform: scale(1.035);
+  }
+}
+
+.boot-taskbar {
+  animation: boot-taskbar 320ms var(--motion-ease-enter) backwards;
+}
+
+@keyframes boot-taskbar {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.boot-start {
+  animation: boot-power 560ms var(--motion-ease-standard) 260ms backwards;
+}
+
+@keyframes boot-power {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(238, 187, 195, 0);
+  }
+  30% {
+    transform: scale(1.14);
+    box-shadow: 0 0 0 4px rgba(238, 187, 195, 0.7);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 12px rgba(238, 187, 195, 0);
+  }
+}
+
+.window-appear-boot {
+  --boot-t: calc(var(--boot-start) + var(--boot-index, 0) * var(--boot-gap));
+}
+
+/* ズーム矩形: Start ボタンからウィンドウの位置へ飛ぶ枠線の残像 (2 本) */
+.window-appear-boot::before,
+.window-appear-boot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(238, 187, 195, 0.95);
+  border-radius: 0.5rem;
+  pointer-events: none;
+  transform-origin: 0 0;
+  opacity: 0;
+  animation: zoom-rect 440ms var(--motion-ease-travel) var(--boot-t) both;
+}
+
+.window-appear-boot::after {
+  border-color: rgba(184, 193, 236, 0.8);
+  animation-delay: calc(var(--boot-t) + 70ms);
+}
+
+@keyframes zoom-rect {
+  0% {
+    /* --zoom-from が無い (モバイル) ときは足元から立ち上がる */
+    transform: var(--zoom-from, translate(30%, 60%) scale(0.4));
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: none;
+    opacity: 0;
+  }
+}
+
+/* 本体: タイトルバーの帯が左から伸び、続いて下へ展開する */
+.window-appear-boot .window-frame {
+  animation: window-unfold 620ms linear calc(var(--boot-t) + 360ms) backwards;
+}
+
+@keyframes window-unfold {
+  0% {
+    clip-path: inset(0 100% calc(100% - 2rem) 0 round 0.5rem);
+    animation-timing-function: var(--motion-ease-standard);
+  }
+  34% {
+    clip-path: inset(0 0 calc(100% - 2rem) 0 round 0.5rem);
+    animation-timing-function: var(--motion-ease-enter);
+  }
+  100% {
+    /* 影 (右下 4px) まで含めて切らない */
+    clip-path: inset(-4px -8px -8px -4px round 0.5rem);
+  }
+}
+
+/* ファイル名をタイプライター風に打つ */
+.window-appear-boot .window-title {
+  animation: title-type 260ms steps(var(--title-len, 12), end)
+    calc(var(--boot-t) + 400ms) backwards;
+}
+
+@keyframes title-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.window-appear-boot .window-body > * {
+  animation: body-rise 380ms var(--motion-ease-enter)
+    calc(var(--boot-t) + 640ms) backwards;
+}
+
+@keyframes body-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* タスクバーから単体で開いたときは短い出現だけ */
+.window-appear-open {
+  transform-origin: 50% 0;
+  animation: window-open var(--motion-duration-enter) var(--motion-ease-enter)
+    backwards;
+}
+
+@keyframes window-open {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* ページ遷移のタイトルバー (記事ページ)。JS 側で clip-path を動かす */
+.page-titlebar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 寄り・残像・展開はやめ、出現はフェードだけ残す */
+  .boot-stage,
+  .boot-taskbar,
+  .boot-start,
+  .window-appear-boot .window-frame,
+  .window-appear-boot .window-title,
+  .window-appear-boot .window-body > * {
+    animation: none;
+  }
+  .window-appear-boot::before,
+  .window-appear-boot::after {
+    content: none;
+  }
+  .window-appear-open,
+  .window-appear-boot {
+    animation: window-fade 120ms linear backwards;
+  }
+}
+
+@keyframes window-fade {
+  from {
+    opacity: 0;
+  }
+}
